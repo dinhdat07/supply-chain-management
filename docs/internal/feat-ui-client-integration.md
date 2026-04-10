@@ -52,11 +52,13 @@ Replace the mock-driven React client with real control-tower backend data and ac
   - [x] wire approve / reject / safer-plan buttons
 - [x] Add loading, empty, and backend-error states
 - [x] Add Vite proxy for `/api`
-- [x] Run a frontend build
+- [x] Run TypeScript compilation
+- [ ] Run a full Vite build
 
 ## Testing Approach
 
-- [x] Run `npm run build`
+- [x] Run `npx tsc -b`
+- [ ] Run `npm run build`
 - [ ] Manually verify:
   - [ ] dashboard loads summary
   - [ ] inventory loads rows
