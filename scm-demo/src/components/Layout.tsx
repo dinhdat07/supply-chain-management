@@ -21,6 +21,7 @@ export function Layout({ children, currentTab, setTab }: LayoutProps) {
       <aside className="w-64 bg-pureWhite border-r border-borderGray flex flex-col">
         <div className="p-6">
           <h1 className="text-[22px] font-bold tracking-tight">DryChicken<span className="text-rausch">SCM</span></h1>
+          <p className="mt-2 text-[12px] uppercase tracking-[0.16em] text-secondaryGray">Control Tower</p>
         </div>
         
         <nav className="flex-1 px-4 space-y-2 mt-4">
