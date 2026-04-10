@@ -238,5 +238,22 @@ export interface ApprovalCommandResultResponse {
   summary?: ControlTowerSummaryResponse | null;
 }
 
+export interface WhatIfSummary {
+  mode: string;
+  active_events: string[];
+  inventory_items: number;
+  suppliers: number;
+  routes: number;
+  kpis: KPIView;
+  latest_plan_id?: string | null;
+  pending_plan_id?: string | null;
+}
+
+export interface WhatIfResponse {
+  scenario_name: string;
+  summary: WhatIfSummary;
+  latest_plan?: PlanView | null;
+}
+
 export type ApprovalAction = 'approve' | 'reject' | 'safer_plan';
 export type ScenarioName = 'supplier_delay' | 'demand_spike' | 'route_blockage' | 'compound_disruption';

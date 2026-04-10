@@ -14,11 +14,14 @@ function App() {
     suppliers,
     trace,
     pendingApproval,
+    approvalDetail,
+    scenarioPreview,
     loading,
     refreshing,
     actionLoading,
     error,
     refresh,
+    previewScenario,
     runDailyPlan,
     runScenario,
     applyApproval,
@@ -45,12 +48,15 @@ function App() {
             summary={summary}
             trace={trace}
             pendingApproval={pendingApproval}
+            approvalDetail={approvalDetail}
+            scenarioPreview={scenarioPreview}
             loading={loading}
             refreshing={refreshing}
             actionLoading={actionLoading}
             error={error}
             onRefresh={refresh}
-            onRunDailyPlan={runDailyPlan}
+            onPreviewScenario={previewScenario}
+            onGenerateRecommendations={runDailyPlan}
             onRunScenario={runScenario}
             onApprovalAction={applyApproval}
           />

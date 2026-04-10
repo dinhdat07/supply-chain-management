@@ -8,6 +8,7 @@ import type {
   ScenarioName,
   SupplierListResponse,
   TraceResponse,
+  WhatIfResponse,
 } from './types';
 
 const API_BASE = '/api/v1';
@@ -67,6 +68,13 @@ export function runDailyPlan() {
 
 export function runScenario(scenarioName: ScenarioName) {
   return requestJson('/scenarios/run', {
+    method: 'POST',
+    body: JSON.stringify({ scenario_name: scenarioName }),
+  });
+}
+
+export function previewScenario(scenarioName: ScenarioName) {
+  return requestJson<WhatIfResponse>('/what-if', {
     method: 'POST',
     body: JSON.stringify({ scenario_name: scenarioName }),
   });

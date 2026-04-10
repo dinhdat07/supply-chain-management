@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 
 import {
+  fetchApproval,
   fetchInventory,
   fetchPendingApproval,
   fetchSummary,
   fetchSuppliers,
   fetchTrace,
+  previewScenario,
   runDailyPlan,
   runScenario,
   submitApproval,
@@ -19,6 +21,7 @@ import type {
   ScenarioName,
   SupplierRowView,
   TraceView,
+  WhatIfResponse,
 } from '../lib/types';
 
 export const SCENARIO_OPTIONS: Array<{ label: string; value: ScenarioName }> = [
@@ -35,6 +38,7 @@ interface ControlTowerData {
   trace: TraceView | null;
   pendingApproval: PendingApprovalView | null;
   approvalDetail: ApprovalDetailView | null;
+  scenarioPreview: WhatIfResponse | null;
 }
 
 const INITIAL_DATA: ControlTowerData = {
@@ -44,6 +48,7 @@ const INITIAL_DATA: ControlTowerData = {
   trace: null,
   pendingApproval: null,
   approvalDetail: null,
+  scenarioPreview: null,
 };
 
 export function useControlTower() {
@@ -61,6 +66,9 @@ export function useControlTower() {
       fetchTrace(),
       fetchPendingApproval(),
     ]);
+    const approvalDetail = pendingApproval.item
+      ? await fetchApproval(pendingApproval.item.decision_id)
+      : null;
 
     setData({
       summary,
@@ -68,7 +76,8 @@ export function useControlTower() {
       suppliers: suppliers.items,
       trace: trace.item,
       pendingApproval: pendingApproval.item ?? null,
-      approvalDetail: null,
+      approvalDetail: approvalDetail?.item ?? null,
+      scenarioPreview: null,
     });
   }
 
@@ -113,6 +122,19 @@ export function useControlTower() {
     }
   }
 
+  async function handlePreviewScenario(scenario: ScenarioName) {
+    setActionLoading(`preview:${scenario}`);
+    try {
+      const preview = await previewScenario(scenario);
+      setData((current) => ({ ...current, scenarioPreview: preview }));
+      setError(null);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Failed to preview scenario.');
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
   async function handleApproval(action: ApprovalAction, decisionId: string) {
     setActionLoading(`approval:${action}`);
     try {
@@ -132,6 +154,7 @@ export function useControlTower() {
     actionLoading,
     error,
     refresh,
+    previewScenario: handlePreviewScenario,
     runDailyPlan: handleRunDailyPlan,
     runScenario: handleRunScenario,
     applyApproval: handleApproval,

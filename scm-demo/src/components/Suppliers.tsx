@@ -1,6 +1,7 @@
 import { Star, ShieldCheck, Clock, DollarSign } from 'lucide-react';
 
 import type { SupplierRowView } from '../lib/types';
+import { humanizeStatus } from '../lib/presenters';
 
 interface SuppliersProps {
   items: SupplierRowView[];
@@ -68,7 +69,7 @@ export function Suppliers({ items, loading, error }: SuppliersProps) {
                 </span>
               </div>
               <div className="pt-3 text-[13px] text-secondaryGray">
-                Status: <span className="font-semibold text-nearBlack">{supplier.status}</span>
+                Status: <span className="font-semibold text-nearBlack">{humanizeStatus(supplier.status)}</span>
                 {supplier.is_primary ? ' • Primary supplier' : ' • Alternate supplier'}
               </div>
             </div>

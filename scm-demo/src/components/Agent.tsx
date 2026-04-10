@@ -1,153 +1,230 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
   BrainCircuit,
   CheckCircle2,
-  GitBranch,
-  Play,
+  ChevronRight,
+  Eye,
   RefreshCcw,
   ShieldAlert,
+  Sparkles,
   Truck,
 } from 'lucide-react';
 
-import { SCENARIO_OPTIONS } from '../hooks/useControlTower';
 import type {
   ApprovalAction,
+  ApprovalDetailView,
+  CandidateEvaluationView,
   ControlTowerSummaryResponse,
   PendingApprovalView,
   ScenarioName,
   TraceView,
+  WhatIfResponse,
 } from '../lib/types';
+import {
+  formatCurrency,
+  formatMetricDelta,
+  formatPercent,
+  humanizeAction,
+  humanizeLabel,
+  humanizeNode,
+  humanizeReasoningSource,
+  humanizeStatus,
+  humanizeStrategy,
+  severityTone,
+} from '../lib/presenters';
+import { SCENARIO_OPTIONS } from '../hooks/useControlTower';
 
 interface AgentProps {
   summary: ControlTowerSummaryResponse | null;
   trace: TraceView | null;
   pendingApproval: PendingApprovalView | null;
+  approvalDetail: ApprovalDetailView | null;
+  scenarioPreview: WhatIfResponse | null;
   loading: boolean;
   refreshing: boolean;
   actionLoading: string | null;
   error: string | null;
   onRefresh: () => Promise<void>;
-  onRunDailyPlan: () => Promise<void>;
+  onPreviewScenario: (scenario: ScenarioName) => Promise<void>;
+  onGenerateRecommendations: () => Promise<void>;
   onRunScenario: (scenario: ScenarioName) => Promise<void>;
   onApprovalAction: (action: ApprovalAction, decisionId: string) => Promise<void>;
 }
 
-function percent(value: number) {
-  return `${(value * 100).toFixed(1)}%`;
+function modeTone(mode: string | null | undefined): string {
+  const tone = severityTone(mode);
+  if (tone === 'critical') return 'border-errorRed/20 bg-errorRed/10 text-errorRed';
+  if (tone === 'warning') return 'border-amber-200 bg-amber-50 text-amber-800';
+  return 'border-green-200 bg-green-50 text-green-700';
 }
 
-function toneClasses(mode: string) {
-  if (mode === 'approval') return 'bg-amber-50 text-amber-800 border-amber-200';
-  if (mode === 'crisis') return 'bg-errorRed/10 text-errorRed border-errorRed/20';
-  return 'bg-green-50 text-green-700 border-green-200';
+function snapshotEntries(snapshot: Record<string, unknown>): Array<[string, string]> {
+  return Object.entries(snapshot)
+    .filter(([, value]) => value !== null && value !== undefined && value !== '')
+    .map(([key, value]) => {
+      if (typeof value === 'number') {
+        return [humanizeLabel(key), Number.isInteger(value) ? value.toString() : value.toFixed(2)];
+      }
+      if (Array.isArray(value)) {
+        return [humanizeLabel(key), value.join(', ')];
+      }
+      return [humanizeLabel(key), String(value)];
+    });
+}
+
+function kpiRow(label: string, before: string, after: string, delta: string) {
+  return (
+    <div className="grid grid-cols-[1.2fr_1fr_1fr_1fr] gap-3 rounded-card border border-borderGray bg-lightSurface px-4 py-3 text-[13px] text-secondaryGray">
+      <div className="font-semibold text-nearBlack">{label}</div>
+      <div>Before {before}</div>
+      <div>Projected {after}</div>
+      <div className="font-semibold text-nearBlack">{delta}</div>
+    </div>
+  );
+}
+
+function CandidatePlanCard({
+  evaluation,
+  selected,
+}: {
+  evaluation: CandidateEvaluationView;
+  selected: boolean;
+}) {
+  return (
+    <div className={`rounded-card border p-4 ${selected ? 'border-rausch bg-rausch/5' : 'border-borderGray bg-pureWhite'}`}>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h4 className="text-[16px] font-bold text-nearBlack">{humanizeStrategy(evaluation.strategy_label)}</h4>
+          <p className="mt-1 text-[12px] uppercase tracking-wider text-secondaryGray">
+            {selected ? 'Selected recommendation' : 'Alternative'}
+          </p>
+        </div>
+        {selected ? (
+          <span className="rounded-full bg-rausch px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-pureWhite">
+            selected
+          </span>
+        ) : null}
+      </div>
+      <div className="mt-4 space-y-1 text-[13px] text-secondaryGray">
+        <div>Score <span className="font-semibold text-nearBlack">{evaluation.score.toFixed(4)}</span></div>
+        <div>Service <span className="font-semibold text-nearBlack">{formatPercent(evaluation.projected_kpis.service_level)}</span></div>
+        <div>Risk <span className="font-semibold text-nearBlack">{formatPercent(evaluation.projected_kpis.disruption_risk)}</span></div>
+        <div>Recovery <span className="font-semibold text-nearBlack">{formatPercent(evaluation.projected_kpis.recovery_speed)}</span></div>
+        <div>Cost <span className="font-semibold text-nearBlack">{formatCurrency(evaluation.projected_kpis.total_cost)}</span></div>
+      </div>
+      <p className="mt-3 text-[13px] text-secondaryGray">{evaluation.rationale}</p>
+    </div>
+  );
 }
 
 export function Agent({
   summary,
   trace,
   pendingApproval,
+  approvalDetail,
+  scenarioPreview,
   loading,
   refreshing,
   actionLoading,
   error,
   onRefresh,
-  onRunDailyPlan,
+  onPreviewScenario,
+  onGenerateRecommendations,
   onRunScenario,
   onApprovalAction,
 }: AgentProps) {
   const [scenario, setScenario] = useState<ScenarioName>('supplier_delay');
+  const [visibleStepCount, setVisibleStepCount] = useState(0);
+  const [selectedStepIndex, setSelectedStepIndex] = useState(0);
 
-  const currentPlan = pendingApproval?.plan ?? trace?.latest_plan ?? summary?.latest_plan ?? null;
+  const steps = trace?.steps ?? [];
+  const displayedSteps = steps.slice(0, visibleStepCount);
+  const selectedStep = displayedSteps[selectedStepIndex] ?? displayedSteps[displayedSteps.length - 1] ?? null;
+  const selectedPlan = approvalDetail?.plan ?? pendingApproval?.plan ?? trace?.latest_plan ?? summary?.latest_plan ?? null;
   const candidatePlans = trace?.candidate_evaluations ?? [];
+  const alternativePlans = candidatePlans.filter((item) => item.strategy_label !== trace?.selected_strategy);
+
+  useEffect(() => {
+    if (!trace?.trace_id || steps.length === 0) {
+      setVisibleStepCount(0);
+      setSelectedStepIndex(0);
+      return;
+    }
+
+    setVisibleStepCount(1);
+    setSelectedStepIndex(0);
+
+    const interval = window.setInterval(() => {
+      setVisibleStepCount((current) => {
+        if (current >= steps.length) {
+          window.clearInterval(interval);
+          return current;
+        }
+        return current + 1;
+      });
+    }, 220);
+
+    return () => window.clearInterval(interval);
+  }, [trace?.trace_id, steps.length]);
+
+  useEffect(() => {
+    if (selectedStepIndex >= displayedSteps.length) {
+      setSelectedStepIndex(Math.max(displayedSteps.length - 1, 0));
+    }
+  }, [displayedSteps.length, selectedStepIndex]);
+
+  const exceptionCount = summary?.alerts.length ?? 0;
+  const recommendationState = pendingApproval
+    ? 'Approval required'
+    : selectedPlan
+      ? 'Recommendation ready'
+      : 'No recommendations generated yet';
+
+  const workQueue = useMemo(() => {
+    if (!summary) return [];
+    return [
+      {
+        title: 'Network state',
+        value: humanizeStatus(summary.mode),
+        detail: `${summary.active_events.length} active disruption signals`,
+      },
+      {
+        title: 'Exceptions',
+        value: `${exceptionCount}`,
+        detail: exceptionCount > 0 ? 'Review high-priority exceptions first' : 'No urgent exceptions right now',
+      },
+      {
+        title: 'Recommendation status',
+        value: recommendationState,
+        detail: selectedPlan
+          ? `${humanizeStrategy(selectedPlan.strategy_label)} recommendation prepared`
+          : 'Generate recommendations when exceptions require action',
+      },
+    ];
+  }, [exceptionCount, recommendationState, selectedPlan, summary]);
 
   return (
-    <div className="max-w-6xl mx-auto pb-8 space-y-6">
-      <div className="bg-pureWhite p-6 rounded-[24px] shadow-card border border-borderGray">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-rausch/10 rounded-full">
-              <BrainCircuit className="text-rausch w-6 h-6" />
+    <div className="max-w-7xl mx-auto space-y-8 pb-10">
+      <header className="rounded-[24px] border border-borderGray bg-pureWhite p-6 shadow-card">
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+          <div className="flex items-start gap-4">
+            <div className="rounded-full bg-rausch/10 p-3">
+              <BrainCircuit className="h-6 w-6 text-rausch" />
             </div>
             <div>
-              <h1 className="text-[24px] font-bold text-nearBlack tracking-[-0.18px]">AI Supply Chain Agent</h1>
-              <p className="text-[14px] text-secondaryGray font-medium mt-1">
-                Live control tower orchestration: sense, analyze, plan, approve, act, and learn.
+              <h1 className="text-[28px] font-bold tracking-[-0.18px] text-nearBlack">Control Tower</h1>
+              <p className="mt-2 max-w-3xl text-[15px] text-secondaryGray">
+                Review the current network state, generate recovery recommendations, simulate disruptions, and resolve approvals from one operating workspace.
               </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <div className={`rounded-full border px-4 py-2 text-[12px] font-bold uppercase tracking-[0.16em] ${toneClasses(summary?.mode ?? 'normal')}`}>
-              {summary?.mode ?? 'loading'}
-            </div>
-            <button
-              onClick={() => void onRefresh()}
-              className="flex items-center gap-2 rounded-card border border-borderGray bg-pureWhite px-4 py-2 text-[14px] font-semibold text-nearBlack transition-all hover:bg-lightSurface"
-            >
-              <RefreshCcw size={16} className={refreshing ? 'animate-spin' : ''} />
-              Refresh
-            </button>
+          <div className={`rounded-full border px-4 py-2 text-[12px] font-bold uppercase tracking-[0.16em] ${modeTone(summary?.mode)}`}>
+            {humanizeStatus(summary?.mode)}
           </div>
         </div>
-
-        <div className="mt-6 flex flex-col gap-4 xl:flex-row xl:items-end">
-          <div className="grid flex-1 grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-card border border-borderGray bg-lightSurface px-4 py-3">
-              <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Service level</div>
-              <div className="mt-1 text-[22px] font-bold text-nearBlack">
-                {summary ? percent(summary.kpis.service_level) : '--'}
-              </div>
-            </div>
-            <div className="rounded-card border border-borderGray bg-lightSurface px-4 py-3">
-              <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Recovery speed</div>
-              <div className="mt-1 text-[22px] font-bold text-nearBlack">
-                {summary ? percent(summary.kpis.recovery_speed) : '--'}
-              </div>
-            </div>
-            <div className="rounded-card border border-borderGray bg-lightSurface px-4 py-3">
-              <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Disruption risk</div>
-              <div className="mt-1 text-[22px] font-bold text-nearBlack">
-                {summary ? percent(summary.kpis.disruption_risk) : '--'}
-              </div>
-            </div>
-            <div className="rounded-card border border-borderGray bg-lightSurface px-4 py-3">
-              <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Decision latency</div>
-              <div className="mt-1 text-[22px] font-bold text-nearBlack">
-                {summary ? `${summary.kpis.decision_latency_ms.toFixed(0)} ms` : '--'}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-3 md:flex-row">
-            <button
-              onClick={() => void onRunDailyPlan()}
-              disabled={loading || actionLoading !== null}
-              className="flex items-center justify-center gap-2 rounded-card bg-nearBlack px-5 py-3 text-[14px] font-bold text-pureWhite transition-all hover:bg-nearBlack/90 disabled:cursor-not-allowed disabled:bg-nearBlack/20 disabled:text-nearBlack/40"
-            >
-              <Play size={16} />
-              Run Daily Plan
-            </button>
-            <select
-              value={scenario}
-              onChange={(event) => setScenario(event.target.value as ScenarioName)}
-              className="rounded-card border border-borderGray bg-lightSurface px-4 py-3 text-[14px] font-medium text-nearBlack"
-            >
-              {SCENARIO_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-            <button
-              onClick={() => void onRunScenario(scenario)}
-              disabled={loading || actionLoading !== null}
-              className="flex items-center justify-center gap-2 rounded-card bg-rausch px-5 py-3 text-[14px] font-bold text-pureWhite transition-all hover:bg-rausch/90 disabled:cursor-not-allowed disabled:bg-rausch/30"
-            >
-              <Truck size={16} />
-              Trigger Scenario
-            </button>
-          </div>
-        </div>
-      </div>
+      </header>
 
       {error ? (
         <div className="rounded-card border border-errorRed/20 bg-errorRed/5 px-5 py-4 text-[14px] text-errorRed">
@@ -155,259 +232,521 @@ export function Agent({
         </div>
       ) : null}
 
-      {pendingApproval ? (
-        <div className="rounded-[24px] border border-amber-200 bg-amber-50 p-6 shadow-card">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="flex items-start gap-3">
-              <ShieldAlert className="mt-1 text-amber-700" size={22} />
-              <div>
-                <h2 className="text-[22px] font-semibold text-nearBlack">Approval Required</h2>
-                <p className="mt-1 text-[14px] text-secondaryGray">{pendingApproval.approval_reason}</p>
-                <p className="mt-2 text-[13px] text-secondaryGray">
-                  Decision {pendingApproval.decision_id} is blocking: {pendingApproval.blocking_operations.join(', ')}.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <button
-                onClick={() => void onApprovalAction('approve', pendingApproval.decision_id)}
-                disabled={actionLoading !== null}
-                className="rounded-card bg-nearBlack px-4 py-3 text-[14px] font-bold text-pureWhite disabled:bg-nearBlack/20 disabled:text-nearBlack/40"
-              >
-                Approve
-              </button>
-              <button
-                onClick={() => void onApprovalAction('reject', pendingApproval.decision_id)}
-                disabled={actionLoading !== null}
-                className="rounded-card border border-borderGray bg-pureWhite px-4 py-3 text-[14px] font-bold text-nearBlack disabled:bg-lightSurface"
-              >
-                Reject
-              </button>
-              <button
-                onClick={() => void onApprovalAction('safer_plan', pendingApproval.decision_id)}
-                disabled={actionLoading !== null}
-                className="rounded-card bg-rausch px-4 py-3 text-[14px] font-bold text-pureWhite disabled:bg-rausch/30"
-              >
-                Request Safer Plan
-              </button>
-            </div>
+      <section className="space-y-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-[24px] font-bold text-nearBlack">Operations Console</h2>
+            <p className="mt-1 text-[14px] text-secondaryGray">
+              Daily operator workflow: review network health, triage exceptions, and generate actionable recommendations.
+            </p>
           </div>
         </div>
-      ) : null}
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.5fr_1fr]">
-        <div className="space-y-6">
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_0.8fr]">
           <div className="rounded-[24px] border border-borderGray bg-pureWhite p-6 shadow-card">
-            <div className="flex items-center gap-3">
-              <GitBranch className="text-rausch" size={20} />
-              <div>
-                <h2 className="text-[22px] font-semibold text-nearBlack">Agent Execution Trace</h2>
-                <p className="text-[14px] text-secondaryGray">
-                  Actual LangGraph node flow for the latest run.
-                </p>
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div className="grid flex-1 grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-card border border-borderGray bg-lightSurface px-4 py-3">
+                  <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Service level</div>
+                  <div className="mt-1 text-[22px] font-bold text-nearBlack">
+                    {summary ? formatPercent(summary.kpis.service_level) : '--'}
+                  </div>
+                </div>
+                <div className="rounded-card border border-borderGray bg-lightSurface px-4 py-3">
+                  <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Recovery speed</div>
+                  <div className="mt-1 text-[22px] font-bold text-nearBlack">
+                    {summary ? formatPercent(summary.kpis.recovery_speed) : '--'}
+                  </div>
+                </div>
+                <div className="rounded-card border border-borderGray bg-lightSurface px-4 py-3">
+                  <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Disruption risk</div>
+                  <div className="mt-1 text-[22px] font-bold text-nearBlack">
+                    {summary ? formatPercent(summary.kpis.disruption_risk) : '--'}
+                  </div>
+                </div>
+                <div className="rounded-card border border-borderGray bg-lightSurface px-4 py-3">
+                  <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Decision latency</div>
+                  <div className="mt-1 text-[22px] font-bold text-nearBlack">
+                    {summary ? `${summary.kpis.decision_latency_ms.toFixed(0)} ms` : '--'}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3 md:flex-row">
+                <button
+                  onClick={() => void onRefresh()}
+                  disabled={loading || actionLoading !== null}
+                  className="flex items-center justify-center gap-2 rounded-card border border-borderGray bg-pureWhite px-4 py-3 text-[14px] font-semibold text-nearBlack transition-all hover:bg-lightSurface disabled:cursor-not-allowed disabled:bg-lightSurface disabled:text-nearBlack/40"
+                >
+                  <RefreshCcw size={16} className={refreshing ? 'animate-spin' : ''} />
+                  Refresh Network State
+                </button>
+                <button
+                  onClick={() => void onGenerateRecommendations()}
+                  disabled={loading || actionLoading !== null}
+                  className="flex items-center justify-center gap-2 rounded-card bg-nearBlack px-5 py-3 text-[14px] font-bold text-pureWhite transition-all hover:bg-nearBlack/90 disabled:cursor-not-allowed disabled:bg-nearBlack/20 disabled:text-nearBlack/40"
+                >
+                  <Sparkles size={16} />
+                  Generate Recommendations
+                </button>
               </div>
             </div>
 
-            {loading || !trace ? (
-              <div className="mt-6 rounded-card border border-borderGray bg-lightSurface px-5 py-6 text-[14px] text-secondaryGray">
-                Waiting for the first control tower run...
-              </div>
-            ) : (
-              <div className="mt-6 space-y-4">
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-                  <div className="rounded-card bg-lightSurface px-4 py-3">
-                    <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Branch</div>
-                    <div className="mt-1 text-[16px] font-bold text-nearBlack">{trace.current_branch}</div>
-                  </div>
-                  <div className="rounded-card bg-lightSurface px-4 py-3">
-                    <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Terminal stage</div>
-                    <div className="mt-1 text-[16px] font-bold text-nearBlack">{trace.terminal_stage ?? 'pending'}</div>
-                  </div>
-                  <div className="rounded-card bg-lightSurface px-4 py-3">
-                    <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Selected strategy</div>
-                    <div className="mt-1 text-[16px] font-bold text-nearBlack">{trace.selected_strategy ?? 'n/a'}</div>
-                  </div>
-                  <div className="rounded-card bg-lightSurface px-4 py-3">
-                    <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Execution status</div>
-                    <div className="mt-1 text-[16px] font-bold text-nearBlack">{trace.execution_status ?? 'n/a'}</div>
-                  </div>
+            <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+              {workQueue.map((item) => (
+                <div key={item.title} className="rounded-card border border-borderGray bg-lightSurface px-4 py-4">
+                  <div className="text-[12px] uppercase tracking-wider text-secondaryGray">{item.title}</div>
+                  <div className="mt-2 text-[18px] font-bold text-nearBlack">{item.value}</div>
+                  <p className="mt-2 text-[13px] text-secondaryGray">{item.detail}</p>
                 </div>
+              ))}
+            </div>
 
-                {trace.route_decisions.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {trace.route_decisions.map((route) => (
-                      <span
-                        key={`${route.from_node}-${route.to_node}-${route.outcome}`}
-                        className="rounded-full border border-borderGray bg-lightSurface px-3 py-2 text-[12px] font-semibold text-secondaryGray"
-                        title={route.reason}
-                      >
-                        {route.from_node} → {route.to_node}
-                      </span>
-                    ))}
+            <div className="mt-6 rounded-card border border-borderGray bg-lightSurface px-5 py-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Recommendation package</div>
+                  <div className="mt-2 text-[20px] font-bold text-nearBlack">
+                    {selectedPlan ? humanizeStrategy(selectedPlan.strategy_label) : 'No recommendation generated yet'}
+                  </div>
+                  <p className="mt-2 text-[14px] text-secondaryGray">
+                    {trace?.selection_reason ?? selectedPlan?.planner_reasoning ?? 'Refresh the network and generate recommendations to create a plan package.'}
+                  </p>
+                </div>
+                {selectedPlan ? (
+                  <div className={`rounded-full border px-3 py-2 text-[11px] font-semibold uppercase tracking-wider ${modeTone(selectedPlan.approval_status)}`}>
+                    {humanizeStatus(selectedPlan.approval_status)}
                   </div>
                 ) : null}
-
-                <div className="space-y-3">
-                  {trace.steps.map((step) => (
-                    <div key={`${step.agent}-${step.started_at}`} className="rounded-card border border-borderGray p-4">
-                      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-[16px] font-bold text-nearBlack">{step.agent}</h3>
-                            <span className="rounded-full bg-lightSurface px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-secondaryGray">
-                              {step.node_type}
-                            </span>
-                            {step.llm_used ? (
-                              <span className="rounded-full bg-rausch/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-rausch">
-                                ai-assisted
-                              </span>
-                            ) : null}
-                          </div>
-                          <p className="mt-2 text-[14px] text-secondaryGray">{step.summary}</p>
-                        </div>
-                        <div className="text-[12px] uppercase tracking-wider text-secondaryGray">
-                          {step.status}
-                        </div>
-                      </div>
-
-                      {step.recommended_action_ids.length > 0 ? (
-                        <div className="mt-3 text-[13px] text-secondaryGray">
-                          Actions: <span className="font-semibold text-nearBlack">{step.recommended_action_ids.join(', ')}</span>
-                        </div>
-                      ) : null}
-
-                      {step.tradeoffs.length > 0 ? (
-                        <ul className="mt-3 space-y-1 text-[13px] text-secondaryGray">
-                          {step.tradeoffs.slice(0, 2).map((item) => (
-                            <li key={item}>• {item}</li>
-                          ))}
-                        </ul>
-                      ) : null}
-
-                      {step.llm_error ? (
-                        <div className="mt-3 text-[12px] text-errorRed">LLM fallback: {step.llm_error}</div>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
               </div>
-            )}
+            </div>
           </div>
 
           <div className="rounded-[24px] border border-borderGray bg-pureWhite p-6 shadow-card">
-            <h2 className="text-[22px] font-semibold text-nearBlack">Candidate Plans</h2>
-            <p className="mt-1 text-[14px] text-secondaryGray">
-              Planner options scored by the deterministic policy engine.
-            </p>
+            <div className="flex items-center gap-3">
+              <Eye className="h-5 w-5 text-rausch" />
+              <div>
+                <h3 className="text-[20px] font-bold text-nearBlack">Exception Queue</h3>
+                <p className="text-[14px] text-secondaryGray">Review the most important operational exceptions first.</p>
+              </div>
+            </div>
 
-            {candidatePlans.length === 0 ? (
-              <div className="mt-6 rounded-card border border-borderGray bg-lightSurface px-5 py-6 text-[14px] text-secondaryGray">
-                Candidate plans will appear after the first plan or scenario run.
-              </div>
-            ) : (
-              <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
-                {candidatePlans.map((plan) => {
-                  const isSelected = plan.strategy_label === trace?.selected_strategy;
-                  return (
-                    <div
-                      key={plan.strategy_label}
-                      className={`rounded-card border p-4 ${isSelected ? 'border-rausch bg-rausch/5' : 'border-borderGray bg-pureWhite'}`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-[16px] font-bold text-nearBlack">{plan.strategy_label}</h3>
-                        {isSelected ? (
-                          <span className="rounded-full bg-rausch px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-pureWhite">
-                            selected
-                          </span>
-                        ) : null}
+            <div className="mt-5 space-y-3">
+              {summary?.alerts.length ? (
+                summary.alerts.map((alert) => (
+                  <div
+                    key={`${alert.source}-${alert.title}`}
+                    className={`rounded-card border px-4 py-4 ${
+                      severityTone(alert.level) === 'critical'
+                        ? 'border-errorRed/15 bg-errorRed/5'
+                        : 'border-borderGray bg-lightSurface'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className={severityTone(alert.level) === 'critical' ? 'mt-0.5 text-errorRed' : 'mt-0.5 text-nearBlack'} size={18} />
+                      <div>
+                        <div className="text-[15px] font-semibold text-nearBlack">{alert.title}</div>
+                        <p className="mt-1 text-[13px] text-secondaryGray">{alert.message}</p>
                       </div>
-                      <div className="mt-4 space-y-2 text-[14px] text-secondaryGray">
-                        <div>Score <span className="font-semibold text-nearBlack">{plan.score.toFixed(4)}</span></div>
-                        <div>Service <span className="font-semibold text-nearBlack">{percent(plan.projected_kpis.service_level)}</span></div>
-                        <div>Risk <span className="font-semibold text-nearBlack">{percent(plan.projected_kpis.disruption_risk)}</span></div>
-                        <div>Recovery <span className="font-semibold text-nearBlack">{percent(plan.projected_kpis.recovery_speed)}</span></div>
-                        <div>Cost <span className="font-semibold text-nearBlack">{plan.projected_kpis.total_cost.toFixed(2)}</span></div>
-                      </div>
-                      <p className="mt-4 text-[13px] text-secondaryGray">{plan.rationale}</p>
                     </div>
-                  );
-                })}
-              </div>
-            )}
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-card border border-borderGray bg-lightSurface px-4 py-5 text-[14px] text-secondaryGray">
+                  No urgent exceptions are active.
+                </div>
+              )}
+            </div>
           </div>
         </div>
+      </section>
 
-        <div className="space-y-6">
+      <section className="space-y-5">
+        <div>
+          <h2 className="text-[24px] font-bold text-nearBlack">Trace Visualization</h2>
+          <p className="mt-1 text-[14px] text-secondaryGray">
+            The latest orchestration trace is replayed stage-by-stage. Click a stage card to inspect reasoning details.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.1fr_0.9fr]">
           <div className="rounded-[24px] border border-borderGray bg-pureWhite p-6 shadow-card">
-            <h2 className="text-[22px] font-semibold text-nearBlack">Selected Plan</h2>
-            {currentPlan ? (
-              <div className="mt-5 space-y-4">
-                <div className="rounded-card bg-nearBlack px-5 py-5 text-pureWhite">
-                  <div className="text-[12px] uppercase tracking-wider text-pureWhite/60">Strategy</div>
-                  <div className="mt-1 text-[22px] font-bold">{currentPlan.strategy_label ?? 'n/a'}</div>
-                  <div className="mt-3 grid grid-cols-2 gap-4 text-[13px] text-pureWhite/80">
-                    <div>Score {currentPlan.score.toFixed(4)}</div>
-                    <div>Status {currentPlan.approval_status}</div>
-                    <div>Plan ID {currentPlan.plan_id}</div>
-                    <div>Generated by {currentPlan.generated_by ?? 'unknown'}</div>
-                  </div>
-                </div>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+              <div className="rounded-card bg-lightSurface px-4 py-3">
+                <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Current branch</div>
+                <div className="mt-1 text-[16px] font-bold text-nearBlack">{humanizeLabel(trace?.current_branch)}</div>
+              </div>
+              <div className="rounded-card bg-lightSurface px-4 py-3">
+                <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Terminal stage</div>
+                <div className="mt-1 text-[16px] font-bold text-nearBlack">{humanizeLabel(trace?.terminal_stage)}</div>
+              </div>
+              <div className="rounded-card bg-lightSurface px-4 py-3">
+                <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Selected strategy</div>
+                <div className="mt-1 text-[16px] font-bold text-nearBlack">{humanizeStrategy(trace?.selected_strategy)}</div>
+              </div>
+              <div className="rounded-card bg-lightSurface px-4 py-3">
+                <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Execution status</div>
+                <div className="mt-1 text-[16px] font-bold text-nearBlack">{humanizeStatus(trace?.execution_status)}</div>
+              </div>
+            </div>
 
-                <div className="rounded-card border border-borderGray bg-lightSurface px-4 py-4">
-                  <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Why this plan won</div>
-                  <p className="mt-2 text-[14px] text-nearBlack">
-                    {trace?.selection_reason ?? pendingApproval?.selection_reason ?? currentPlan.planner_reasoning}
+            {trace?.route_decisions.length ? (
+              <div className="mt-5 flex flex-wrap gap-2">
+                {trace.route_decisions.map((route) => (
+                  <span
+                    key={`${route.from_node}-${route.to_node}-${route.outcome}`}
+                    className="rounded-full border border-borderGray bg-lightSurface px-3 py-2 text-[12px] font-semibold text-secondaryGray"
+                    title={route.reason}
+                  >
+                    {humanizeNode(route.from_node)} <ChevronRight className="inline h-3 w-3" /> {humanizeNode(route.to_node)}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+
+            <div className="mt-6 space-y-3">
+              {loading || steps.length === 0 ? (
+                <div className="rounded-card border border-borderGray bg-lightSurface px-5 py-6 text-[14px] text-secondaryGray">
+                  Generate recommendations or run a simulation to populate the staged execution trace.
+                </div>
+              ) : (
+                displayedSteps.map((step, index) => (
+                  <button
+                    key={`${step.agent}-${step.started_at}`}
+                    type="button"
+                    onClick={() => setSelectedStepIndex(index)}
+                    className={`w-full rounded-card border p-4 text-left transition-all ${
+                      index === selectedStepIndex
+                        ? 'border-rausch bg-rausch/5 shadow-card'
+                        : 'border-borderGray bg-pureWhite hover:bg-lightSurface'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full bg-lightSurface px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-secondaryGray">
+                            Step {index + 1}
+                          </span>
+                          <span className="text-[16px] font-bold text-nearBlack">{humanizeNode(step.agent)}</span>
+                          {step.llm_used ? (
+                            <span className="rounded-full bg-rausch/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-rausch">
+                              AI-assisted
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="mt-2 text-[14px] text-secondaryGray">{step.summary}</p>
+                      </div>
+                      <div className="rounded-full border border-borderGray bg-lightSurface px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-secondaryGray">
+                        {humanizeStatus(step.status)}
+                      </div>
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-[24px] border border-borderGray bg-pureWhite p-6 shadow-card">
+            <h3 className="text-[20px] font-bold text-nearBlack">Stage Detail</h3>
+            {selectedStep ? (
+              <div className="mt-5 space-y-5">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[18px] font-bold text-nearBlack">{humanizeNode(selectedStep.agent)}</span>
+                    <span className="rounded-full bg-lightSurface px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-secondaryGray">
+                      {humanizeLabel(selectedStep.node_type)}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-[14px] text-secondaryGray">{selectedStep.summary}</p>
+                  <p className="mt-2 text-[12px] uppercase tracking-wider text-secondaryGray">
+                    {humanizeReasoningSource(selectedStep.reasoning_source)}
                   </p>
                 </div>
 
-                <div className="space-y-3">
-                  {currentPlan.actions.map((action) => (
-                    <div key={action.action_id} className="rounded-card border border-borderGray px-4 py-4">
-                      <div className="flex items-center gap-2 text-[15px] font-bold text-nearBlack">
-                        <CheckCircle2 size={16} className="text-rausch" />
-                        {action.action_type}
-                      </div>
-                      <p className="mt-2 text-[14px] text-secondaryGray">{action.reason}</p>
-                      <div className="mt-3 grid grid-cols-2 gap-2 text-[12px] uppercase tracking-wider text-secondaryGray">
-                        <div>Target {action.target_id}</div>
-                        <div>Recovery {action.estimated_recovery_hours.toFixed(1)}h</div>
-                      </div>
+                {snapshotEntries(selectedStep.input_snapshot).length ? (
+                  <div>
+                    <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Input summary</div>
+                    <div className="mt-3 space-y-2">
+                      {snapshotEntries(selectedStep.input_snapshot).map(([label, value]) => (
+                        <div key={`${label}-${value}`} className="flex justify-between rounded-card border border-borderGray bg-lightSurface px-4 py-3 text-[13px]">
+                          <span className="font-medium text-secondaryGray">{label}</span>
+                          <span className="font-semibold text-nearBlack">{value}</span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ) : null}
+
+                {selectedStep.observations.length ? (
+                  <div>
+                    <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Observations</div>
+                    <ul className="mt-3 space-y-2 text-[13px] text-secondaryGray">
+                      {selectedStep.observations.map((item) => <li key={item}>• {item}</li>)}
+                    </ul>
+                  </div>
+                ) : null}
+
+                {selectedStep.recommended_action_ids.length ? (
+                  <div>
+                    <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Recommended actions</div>
+                    <ul className="mt-3 space-y-2 text-[13px] text-secondaryGray">
+                      {selectedStep.recommended_action_ids.map((item) => <li key={item}>• {humanizeAction(item)}</li>)}
+                    </ul>
+                  </div>
+                ) : null}
+
+                {selectedStep.tradeoffs.length ? (
+                  <div>
+                    <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Tradeoffs and concerns</div>
+                    <ul className="mt-3 space-y-2 text-[13px] text-secondaryGray">
+                      {selectedStep.tradeoffs.map((item) => <li key={item}>• {item}</li>)}
+                    </ul>
+                  </div>
+                ) : null}
+
+                {selectedStep.llm_error ? (
+                  <div className="rounded-card border border-errorRed/20 bg-errorRed/5 px-4 py-3 text-[13px] text-errorRed">
+                    AI fallback note: {selectedStep.llm_error}
+                  </div>
+                ) : null}
               </div>
             ) : (
               <div className="mt-5 rounded-card border border-borderGray bg-lightSurface px-5 py-6 text-[14px] text-secondaryGray">
-                Run the daily plan or trigger a scenario to generate a plan.
+                Click a trace stage to inspect the detailed reasoning for that step.
               </div>
             )}
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-5">
+        <div>
+          <h2 className="text-[24px] font-bold text-nearBlack">Scenario Lab</h2>
+          <p className="mt-1 text-[14px] text-secondaryGray">
+            Use simulation separately from daily operations to preview disruption impact and rehearse recovery responses.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[0.8fr_1.2fr]">
+          <div className="rounded-[24px] border border-borderGray bg-pureWhite p-6 shadow-card">
+            <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Select a disruption scenario</div>
+            <select
+              value={scenario}
+              onChange={(event) => setScenario(event.target.value as ScenarioName)}
+              className="mt-4 w-full rounded-card border border-borderGray bg-lightSurface px-4 py-3 text-[14px] font-medium text-nearBlack"
+            >
+              {SCENARIO_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+
+            <div className="mt-5 flex flex-col gap-3">
+              <button
+                onClick={() => void onPreviewScenario(scenario)}
+                disabled={loading || actionLoading !== null}
+                className="flex items-center justify-center gap-2 rounded-card border border-borderGray bg-pureWhite px-4 py-3 text-[14px] font-semibold text-nearBlack transition-all hover:bg-lightSurface disabled:cursor-not-allowed disabled:bg-lightSurface disabled:text-nearBlack/40"
+              >
+                <Eye size={16} />
+                Preview simulated impact
+              </button>
+              <button
+                onClick={() => void onRunScenario(scenario)}
+                disabled={loading || actionLoading !== null}
+                className="flex items-center justify-center gap-2 rounded-card bg-rausch px-4 py-3 text-[14px] font-bold text-pureWhite transition-all hover:bg-rausch/90 disabled:cursor-not-allowed disabled:bg-rausch/30"
+              >
+                <Truck size={16} />
+                Run simulated disruption
+              </button>
+            </div>
           </div>
 
           <div className="rounded-[24px] border border-borderGray bg-pureWhite p-6 shadow-card">
-            <h2 className="text-[22px] font-semibold text-nearBlack">Live Event</h2>
-            {trace?.event ? (
-              <div className="mt-5 rounded-card border border-errorRed/15 bg-errorRed/5 px-4 py-4">
-                <div className="flex items-center gap-2 text-[15px] font-bold text-nearBlack">
-                  <AlertCircle size={16} className="text-errorRed" />
-                  {trace.event.type}
+            <h3 className="text-[20px] font-bold text-nearBlack">Scenario preview</h3>
+            {scenarioPreview && summary ? (
+              <div className="mt-5 space-y-4">
+                <div className={`inline-flex rounded-full border px-4 py-2 text-[12px] font-bold uppercase tracking-[0.16em] ${modeTone(scenarioPreview.summary.mode)}`}>
+                  {humanizeStatus(scenarioPreview.summary.mode)}
                 </div>
-                <p className="mt-2 text-[14px] text-secondaryGray">
-                  Source {trace.event.source} • Severity {trace.event.severity.toFixed(2)}
-                </p>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  {kpiRow(
+                    'Service level',
+                    formatPercent(summary.kpis.service_level),
+                    formatPercent(scenarioPreview.summary.kpis.service_level),
+                    formatMetricDelta(summary.kpis.service_level, scenarioPreview.summary.kpis.service_level, 'percent'),
+                  )}
+                  {kpiRow(
+                    'Disruption risk',
+                    formatPercent(summary.kpis.disruption_risk),
+                    formatPercent(scenarioPreview.summary.kpis.disruption_risk),
+                    formatMetricDelta(summary.kpis.disruption_risk, scenarioPreview.summary.kpis.disruption_risk, 'percent'),
+                  )}
+                  {kpiRow(
+                    'Recovery speed',
+                    formatPercent(summary.kpis.recovery_speed),
+                    formatPercent(scenarioPreview.summary.kpis.recovery_speed),
+                    formatMetricDelta(summary.kpis.recovery_speed, scenarioPreview.summary.kpis.recovery_speed, 'percent'),
+                  )}
+                  {kpiRow(
+                    'Total cost',
+                    formatCurrency(summary.kpis.total_cost),
+                    formatCurrency(scenarioPreview.summary.kpis.total_cost),
+                    formatMetricDelta(summary.kpis.total_cost, scenarioPreview.summary.kpis.total_cost, 'currency'),
+                  )}
+                </div>
+
+                <div className="rounded-card border border-borderGray bg-lightSurface px-4 py-4">
+                  <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Projected recommendation</div>
+                  <div className="mt-2 text-[16px] font-bold text-nearBlack">
+                    {scenarioPreview.latest_plan ? humanizeStrategy(scenarioPreview.latest_plan.strategy_label) : 'No projected plan'}
+                  </div>
+                  <p className="mt-2 text-[13px] text-secondaryGray">
+                    {scenarioPreview.latest_plan?.planner_reasoning ?? 'The simulation preview did not generate a recommendation package.'}
+                  </p>
+                </div>
               </div>
             ) : (
               <div className="mt-5 rounded-card border border-borderGray bg-lightSurface px-5 py-6 text-[14px] text-secondaryGray">
-                No disruption event is active. Use Run Daily Plan for normal mode or trigger a scenario for crisis mode.
+                Preview a disruption here before running the simulation. This keeps what-if analysis separate from the live operations workflow.
               </div>
             )}
-
-            <div className="mt-5 rounded-card border border-borderGray bg-lightSurface px-4 py-4 text-[14px] text-secondaryGray">
-              {loading ? 'Loading backend state...' : 'This page is backed by live FastAPI endpoints and the LangGraph orchestration trace.'}
-            </div>
           </div>
         </div>
-      </div>
+      </section>
+
+      <section className="space-y-5">
+        <div>
+          <h2 className="text-[24px] font-bold text-nearBlack">Approval Queue</h2>
+          <p className="mt-1 text-[14px] text-secondaryGray">
+            Review blocked recommendations, understand KPI impact, and decide whether to approve, reject, or request a safer alternative.
+          </p>
+        </div>
+
+        <div className="rounded-[24px] border border-borderGray bg-pureWhite p-6 shadow-card">
+          {pendingApproval && approvalDetail ? (
+            <div className="space-y-6">
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                <div className="flex items-start gap-3">
+                  <ShieldAlert className="mt-1 text-amber-700" size={22} />
+                  <div>
+                    <h3 className="text-[22px] font-bold text-nearBlack">Approval required</h3>
+                    <p className="mt-1 text-[14px] text-secondaryGray">{approvalDetail.approval_reason}</p>
+                    <p className="mt-2 text-[13px] text-secondaryGray">
+                      Recommendation package: {humanizeStrategy(approvalDetail.plan.strategy_label)} • Reference {approvalDetail.decision_id}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <button
+                    onClick={() => void onApprovalAction('approve', approvalDetail.decision_id)}
+                    disabled={actionLoading !== null}
+                    className="rounded-card bg-nearBlack px-4 py-3 text-[14px] font-bold text-pureWhite disabled:bg-nearBlack/20 disabled:text-nearBlack/40"
+                  >
+                    Approve and execute
+                  </button>
+                  <button
+                    onClick={() => void onApprovalAction('safer_plan', approvalDetail.decision_id)}
+                    disabled={actionLoading !== null}
+                    className="rounded-card bg-rausch px-4 py-3 text-[14px] font-bold text-pureWhite disabled:bg-rausch/30"
+                  >
+                    Request safer alternative
+                  </button>
+                  <button
+                    onClick={() => void onApprovalAction('reject', approvalDetail.decision_id)}
+                    disabled={actionLoading !== null}
+                    className="rounded-card border border-borderGray bg-pureWhite px-4 py-3 text-[14px] font-bold text-nearBlack disabled:bg-lightSurface"
+                  >
+                    Reject
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_1fr]">
+                <div className="space-y-4">
+                  <div className="rounded-card border border-borderGray bg-lightSurface px-5 py-5">
+                    <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Selected plan summary</div>
+                    <div className="mt-2 text-[20px] font-bold text-nearBlack">{humanizeStrategy(approvalDetail.plan.strategy_label)}</div>
+                    <p className="mt-2 text-[14px] text-secondaryGray">
+                      {approvalDetail.selection_reason || approvalDetail.plan.planner_reasoning}
+                    </p>
+                  </div>
+
+                  <div>
+                    <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Actions to be executed</div>
+                    <div className="mt-3 space-y-3">
+                      {approvalDetail.plan.actions.map((action) => (
+                        <div key={action.action_id} className="rounded-card border border-borderGray px-4 py-4">
+                          <div className="flex items-center gap-2 text-[15px] font-bold text-nearBlack">
+                            <CheckCircle2 size={16} className="text-rausch" />
+                            {humanizeAction(action.action_type)}
+                          </div>
+                          <p className="mt-2 text-[14px] text-secondaryGray">{action.reason}</p>
+                          <div className="mt-3 grid grid-cols-2 gap-2 text-[12px] uppercase tracking-wider text-secondaryGray">
+                            <div>Target {action.target_id}</div>
+                            <div>Recovery {action.estimated_recovery_hours.toFixed(1)}h</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Projected KPI impact</div>
+                    <div className="mt-3 space-y-3">
+                      {kpiRow(
+                        'Service level',
+                        formatPercent(approvalDetail.before_kpis.service_level),
+                        formatPercent(approvalDetail.after_kpis.service_level),
+                        formatMetricDelta(approvalDetail.before_kpis.service_level, approvalDetail.after_kpis.service_level, 'percent'),
+                      )}
+                      {kpiRow(
+                        'Disruption risk',
+                        formatPercent(approvalDetail.before_kpis.disruption_risk),
+                        formatPercent(approvalDetail.after_kpis.disruption_risk),
+                        formatMetricDelta(approvalDetail.before_kpis.disruption_risk, approvalDetail.after_kpis.disruption_risk, 'percent'),
+                      )}
+                      {kpiRow(
+                        'Recovery speed',
+                        formatPercent(approvalDetail.before_kpis.recovery_speed),
+                        formatPercent(approvalDetail.after_kpis.recovery_speed),
+                        formatMetricDelta(approvalDetail.before_kpis.recovery_speed, approvalDetail.after_kpis.recovery_speed, 'percent'),
+                      )}
+                      {kpiRow(
+                        'Total cost',
+                        formatCurrency(approvalDetail.before_kpis.total_cost),
+                        formatCurrency(approvalDetail.after_kpis.total_cost),
+                        formatMetricDelta(approvalDetail.before_kpis.total_cost, approvalDetail.after_kpis.total_cost, 'currency'),
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-card border border-amber-200 bg-amber-50 px-4 py-4">
+                    <div className="text-[12px] uppercase tracking-wider text-amber-800">Risk explanation</div>
+                    <p className="mt-2 text-[14px] text-amber-900">{approvalDetail.approval_reason}</p>
+                  </div>
+                </div>
+              </div>
+
+              {alternativePlans.length > 0 ? (
+                <div>
+                  <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Alternative plans</div>
+                  <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-2">
+                    {alternativePlans.slice(0, 2).map((item) => (
+                      <CandidatePlanCard key={item.strategy_label} evaluation={item} selected={false} />
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <div className="rounded-card border border-borderGray bg-lightSurface px-5 py-6 text-[14px] text-secondaryGray">
+              No plans are awaiting approval. High-risk recommendations will appear here with KPI impact, selected actions, and alternatives for review.
+            </div>
+          )}
+        </div>
+      </section>
     </div>
   );
 }

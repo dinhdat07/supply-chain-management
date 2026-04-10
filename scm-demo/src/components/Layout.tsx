@@ -12,7 +12,7 @@ export function Layout({ children, currentTab, setTab }: LayoutProps) {
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'inventory', label: 'Inventory', icon: Package },
     { id: 'suppliers', label: 'Suppliers', icon: Users },
-    { id: 'agent', label: 'AI Agent', icon: BrainCircuit, isHighlight: true },
+    { id: 'agent', label: 'Control Tower', icon: BrainCircuit, isHighlight: true },
   ];
 
   return (

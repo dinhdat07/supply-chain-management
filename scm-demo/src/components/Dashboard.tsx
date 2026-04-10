@@ -2,6 +2,7 @@ import { AlertCircle, ArrowUpRight, Package } from 'lucide-react';
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
 
 import type { ControlTowerSummaryResponse, InventoryRowView } from '../lib/types';
+import { humanizeStatus } from '../lib/presenters';
 
 interface DashboardProps {
   summary: ControlTowerSummaryResponse | null;
@@ -36,7 +37,7 @@ export function Dashboard({ summary, inventory, loading, error }: DashboardProps
         </div>
         {summary ? (
           <div className="rounded-full border border-borderGray bg-pureWhite px-4 py-2 text-[13px] font-semibold uppercase tracking-wider text-secondaryGray">
-            Mode: <span className="text-nearBlack">{summary.mode}</span>
+            Mode: <span className="text-nearBlack">{humanizeStatus(summary.mode)}</span>
           </div>
         ) : null}
       </header>

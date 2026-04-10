@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Search } from 'lucide-react';
 
 import type { InventoryRowView } from '../lib/types';
+import { humanizeStatus } from '../lib/presenters';
 
 interface InventoryProps {
   items: InventoryRowView[];
@@ -74,22 +75,22 @@ export function Inventory({ items, loading, error }: InventoryProps) {
                   <td className="px-6 py-4">
                     {item.status === 'in_stock' && (
                       <span className="inline-flex px-3 py-1 rounded-badge bg-green-100 text-green-800 text-[12px] font-semibold tracking-[-0.18px]">
-                        In Stock
+                        {humanizeStatus(item.status)}
                       </span>
                     )}
                     {item.status === 'low' && (
                       <span className="inline-flex px-3 py-1 rounded-badge bg-yellow-100 text-yellow-800 text-[12px] font-semibold tracking-[-0.18px]">
-                        Low Stock
+                        {humanizeStatus(item.status)}
                       </span>
                     )}
                     {item.status === 'at_risk' && (
                       <span className="inline-flex px-3 py-1 rounded-badge bg-orange-100 text-orange-800 text-[12px] font-semibold tracking-[-0.18px]">
-                        At Risk
+                        {humanizeStatus(item.status)}
                       </span>
                     )}
                     {item.status === 'out_of_stock' && (
                       <span className="inline-flex px-3 py-1 rounded-badge bg-errorRed/10 text-errorRed text-[12px] font-semibold tracking-[-0.18px]">
-                        Out of Stock
+                        {humanizeStatus(item.status)}
                       </span>
                     )}
                   </td>
