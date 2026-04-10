@@ -57,7 +57,12 @@ function titleCase(raw: string): string {
   return raw
     .split(/[_\s-]+/)
     .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .map((part) => {
+      if (/^[A-Z0-9]+$/.test(part) && part.length <= 6) {
+        return part;
+      }
+      return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+    })
     .join(' ');
 }
 
@@ -86,8 +91,55 @@ export function humanizeAction(raw: string | null | undefined): string {
   return humanizeLabel(raw);
 }
 
+export function humanizeEntityId(raw: string | null | undefined): string {
+  return humanizeLabel(raw);
+}
+
+export function describeActionTitle(actionType: string | null | undefined, targetId: string | null | undefined): string {
+  const target = humanizeEntityId(targetId);
+  switch (actionType) {
+    case 'reroute':
+      return `Reroute through ${target}`;
+    case 'reorder':
+      return `Replenish ${target}`;
+    case 'switch_supplier':
+    case 'supplier':
+      return `Shift supply to ${target}`;
+    case 'rebalance':
+      return `Rebalance inventory for ${target}`;
+    case 'no_op':
+      return 'Hold current operating plan';
+    default:
+      return `${humanizeAction(actionType)} ${target}`.trim();
+  }
+}
+
+export function describeActionTarget(actionType: string | null | undefined, targetId: string | null | undefined): string {
+  const target = humanizeEntityId(targetId);
+  switch (actionType) {
+    case 'reroute':
+      return `Transportation path: ${target}`;
+    case 'reorder':
+      return `Inventory item: ${target}`;
+    case 'switch_supplier':
+    case 'supplier':
+      return `Supplier move: ${target}`;
+    case 'rebalance':
+      return `Inventory move: ${target}`;
+    default:
+      return `Operational focus: ${target}`;
+  }
+}
+
 export function humanizeReasoningSource(raw: string | null | undefined): string {
   return humanizeLabel(raw);
+}
+
+export function severitySummary(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(value)) return 'Severity not available';
+  if (value >= 0.8) return 'High severity';
+  if (value >= 0.5) return 'Moderate severity';
+  return 'Low severity';
 }
 
 export function formatPercent(value: number | null | undefined): string {

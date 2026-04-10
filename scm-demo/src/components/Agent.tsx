@@ -23,16 +23,20 @@ import type {
   WhatIfResponse,
 } from '../lib/types';
 import {
+  describeActionTarget,
+  describeActionTitle,
   formatCurrency,
   formatMetricDelta,
   formatPercent,
   humanizeAction,
+  humanizeEntityId,
   humanizeEvent,
   humanizeLabel,
   humanizeNode,
   humanizeReasoningSource,
   humanizeStatus,
   humanizeStrategy,
+  severitySummary,
   severityTone,
 } from '../lib/presenters';
 import { SCENARIO_OPTIONS } from '../hooks/useControlTower';
@@ -91,7 +95,10 @@ function tracePhase(agent: string | null | undefined): string {
 
 function eventSummary(event: EventView | null | undefined): string {
   if (!event) return 'No disruption signal is active.';
-  return `${humanizeEvent(event.type)} from ${humanizeLabel(event.source)} affecting ${event.entity_ids.join(', ') || 'the network'}`;
+  const affectedScope = event.entity_ids.length
+    ? event.entity_ids.map((item) => humanizeEntityId(item)).join(', ')
+    : 'the network';
+  return `${humanizeEvent(event.type)} reported by ${humanizeLabel(event.source)} affecting ${affectedScope}`;
 }
 
 function snapshotEntries(snapshot: Record<string, unknown>): Array<[string, string]> {
@@ -490,21 +497,21 @@ export function Agent({
               <div className="mt-6 rounded-card border border-borderGray bg-lightSurface px-5 py-5">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                  <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Recommendation package</div>
-                  <div className="mt-2 text-[20px] font-bold text-nearBlack">
-                    {selectedPlan ? humanizeStrategy(selectedPlan.strategy_label) : 'No recommendation generated yet'}
+                    <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Action package ready</div>
+                    <div className="mt-2 text-[20px] font-bold text-nearBlack">
+                      {selectedPlan ? humanizeStrategy(selectedPlan.strategy_label) : 'No recommendation generated yet'}
+                    </div>
+                    <p className="mt-2 text-[14px] text-secondaryGray">
+                      {trace?.selection_reason ?? selectedPlan?.planner_reasoning ?? 'Refresh the network and generate recommendations to prepare an action package.'}
+                    </p>
                   </div>
-                  <p className="mt-2 text-[14px] text-secondaryGray">
-                    {trace?.selection_reason ?? selectedPlan?.planner_reasoning ?? 'Refresh the network and generate recommendations to create a plan package.'}
-                  </p>
+                  {selectedPlan ? (
+                    <div className={`rounded-full border px-3 py-2 text-[11px] font-semibold uppercase tracking-wider ${modeTone(selectedPlan.approval_status)}`}>
+                      {humanizeStatus(selectedPlan.approval_status)}
+                    </div>
+                  ) : null}
                 </div>
-                {selectedPlan ? (
-                  <div className={`rounded-full border px-3 py-2 text-[11px] font-semibold uppercase tracking-wider ${modeTone(selectedPlan.approval_status)}`}>
-                    {humanizeStatus(selectedPlan.approval_status)}
-                  </div>
-                ) : null}
               </div>
-            </div>
           </div>
 
           <div className="rounded-[24px] border border-borderGray bg-pureWhite p-6 shadow-card">
@@ -560,19 +567,19 @@ export function Agent({
           <div className="rounded-[24px] border border-borderGray bg-pureWhite p-6 shadow-card">
             <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
               <div className="rounded-card bg-lightSurface px-4 py-3">
-                <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Current branch</div>
+                <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Workflow path</div>
                 <div className="mt-1 text-[16px] font-bold text-nearBlack">{humanizeLabel(trace?.current_branch)}</div>
               </div>
               <div className="rounded-card bg-lightSurface px-4 py-3">
-                <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Terminal stage</div>
+                <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Latest stage</div>
                 <div className="mt-1 text-[16px] font-bold text-nearBlack">{humanizeLabel(trace?.terminal_stage)}</div>
               </div>
               <div className="rounded-card bg-lightSurface px-4 py-3">
-                <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Selected strategy</div>
+                <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Selected package</div>
                 <div className="mt-1 text-[16px] font-bold text-nearBlack">{humanizeStrategy(trace?.selected_strategy)}</div>
               </div>
               <div className="rounded-card bg-lightSurface px-4 py-3">
-                <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Execution status</div>
+                <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Action status</div>
                 <div className="mt-1 text-[16px] font-bold text-nearBlack">{humanizeStatus(trace?.execution_status)}</div>
               </div>
             </div>
@@ -657,13 +664,13 @@ export function Agent({
                   </div>
                   <p className="mt-2 text-[14px] text-secondaryGray">{selectedStep.summary}</p>
                   <p className="mt-2 text-[12px] uppercase tracking-wider text-secondaryGray">
-                    {humanizeReasoningSource(selectedStep.reasoning_source)}
+                    Decision method: {humanizeReasoningSource(selectedStep.reasoning_source)}
                   </p>
                 </div>
 
                 {snapshotEntries(selectedStep.input_snapshot).length ? (
                   <div>
-                    <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Input summary</div>
+                    <div className="text-[12px] uppercase tracking-wider text-secondaryGray">What the agent reviewed</div>
                     <div className="mt-3 space-y-2">
                       {snapshotEntries(selectedStep.input_snapshot).map(([label, value]) => (
                         <div key={`${label}-${value}`} className="flex justify-between rounded-card border border-borderGray bg-lightSurface px-4 py-3 text-[13px]">
@@ -677,7 +684,7 @@ export function Agent({
 
                 {selectedStep.observations.length ? (
                   <div>
-                    <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Observations</div>
+                    <div className="text-[12px] uppercase tracking-wider text-secondaryGray">What the agent noticed</div>
                     <ul className="mt-3 space-y-2 text-[13px] text-secondaryGray">
                       {selectedStep.observations.map((item) => <li key={item}>• {item}</li>)}
                     </ul>
@@ -713,7 +720,7 @@ export function Agent({
 
                 {selectedStep.tradeoffs.length ? (
                   <div>
-                    <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Tradeoffs and concerns</div>
+                    <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Operational tradeoffs</div>
                     <ul className="mt-3 space-y-2 text-[13px] text-secondaryGray">
                       {selectedStep.tradeoffs.map((item) => <li key={item}>• {item}</li>)}
                     </ul>
@@ -722,7 +729,7 @@ export function Agent({
 
                 {selectedStep.llm_error ? (
                   <div className="rounded-card border border-errorRed/20 bg-errorRed/5 px-4 py-3 text-[13px] text-errorRed">
-                    AI fallback note: {selectedStep.llm_error}
+                    AI assistance was unavailable for this step, so the system used its fallback path: {selectedStep.llm_error}
                   </div>
                 ) : null}
               </div>
@@ -851,7 +858,7 @@ export function Agent({
                     <h3 className="text-[22px] font-bold text-nearBlack">Approval required</h3>
                     <p className="mt-1 text-[14px] text-secondaryGray">{approvalDetail.approval_reason}</p>
                     <p className="mt-2 text-[13px] text-secondaryGray">
-                      Recommendation package: {humanizeStrategy(approvalDetail.plan.strategy_label)} • Reference {approvalDetail.decision_id}
+                      {humanizeStrategy(approvalDetail.plan.strategy_label)} action package prepared for operator review.
                     </p>
                   </div>
                 </div>
@@ -892,13 +899,13 @@ export function Agent({
                   </div>
 
                   <div className="rounded-card border border-borderGray bg-pureWhite px-5 py-5">
-                    <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Trigger signal</div>
+                    <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Disruption trigger</div>
                     <div className="mt-2 text-[16px] font-bold text-nearBlack">
-                      {currentEvent ? humanizeEvent(currentEvent.type) : `${approvalDetail.event_ids.length} disruption signals linked`}
+                      {currentEvent ? humanizeEvent(currentEvent.type) : `${approvalDetail.event_ids.length} linked disruption signals`}
                     </div>
                     <p className="mt-2 text-[14px] text-secondaryGray">
                       {currentEvent
-                        ? `${eventSummary(currentEvent)}. Severity ${currentEvent.severity.toFixed(2)}.`
+                        ? `${eventSummary(currentEvent)}. ${severitySummary(currentEvent.severity)}.`
                         : 'This recommendation package is linked to a previously recorded disruption.'}
                     </p>
                   </div>
@@ -910,12 +917,12 @@ export function Agent({
                         <div key={action.action_id} className="rounded-card border border-borderGray px-4 py-4">
                           <div className="flex items-center gap-2 text-[15px] font-bold text-nearBlack">
                             <CheckCircle2 size={16} className="text-rausch" />
-                            {humanizeAction(action.action_type)}
+                            {describeActionTitle(action.action_type, action.target_id)}
                           </div>
                           <p className="mt-2 text-[14px] text-secondaryGray">{action.reason}</p>
                           <div className="mt-3 grid grid-cols-2 gap-2 text-[12px] uppercase tracking-wider text-secondaryGray">
-                            <div>Target {action.target_id}</div>
-                            <div>Recovery {action.estimated_recovery_hours.toFixed(1)}h</div>
+                            <div>{describeActionTarget(action.action_type, action.target_id)}</div>
+                            <div>Recovery window {action.estimated_recovery_hours.toFixed(1)}h</div>
                           </div>
                         </div>
                       ))}
