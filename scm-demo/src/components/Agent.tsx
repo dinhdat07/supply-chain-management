@@ -16,6 +16,7 @@ import type {
   ApprovalDetailView,
   CandidateEvaluationView,
   ControlTowerSummaryResponse,
+  EventView,
   PendingApprovalView,
   ScenarioName,
   TraceView,
@@ -26,6 +27,7 @@ import {
   formatMetricDelta,
   formatPercent,
   humanizeAction,
+  humanizeEvent,
   humanizeLabel,
   humanizeNode,
   humanizeReasoningSource,
@@ -52,11 +54,44 @@ interface AgentProps {
   onApprovalAction: (action: ApprovalAction, decisionId: string) => Promise<void>;
 }
 
+type WorkspaceView = 'full' | 'operations' | 'scenario' | 'approval';
+type StageStatus = 'active' | 'complete' | 'pending';
+
 function modeTone(mode: string | null | undefined): string {
   const tone = severityTone(mode);
   if (tone === 'critical') return 'border-errorRed/20 bg-errorRed/10 text-errorRed';
   if (tone === 'warning') return 'border-amber-200 bg-amber-50 text-amber-800';
   return 'border-green-200 bg-green-50 text-green-700';
+}
+
+function stageTone(status: StageStatus): string {
+  if (status === 'active') return 'border-rausch bg-rausch/5 text-nearBlack shadow-card';
+  if (status === 'complete') return 'border-green-200 bg-green-50 text-nearBlack';
+  return 'border-borderGray bg-pureWhite text-secondaryGray';
+}
+
+function tracePhase(agent: string | null | undefined): string {
+  if (agent === 'risk' || agent === 'demand' || agent === 'inventory' || agent === 'supplier' || agent === 'logistics') {
+    return 'Assess';
+  }
+  if (agent === 'planner' || agent === 'critic') {
+    return 'Plan';
+  }
+  if (agent === 'approval' || agent === 'approval_resolution') {
+    return 'Approve';
+  }
+  if (agent === 'execution') {
+    return 'Execute';
+  }
+  if (agent === 'reflection') {
+    return 'Learn';
+  }
+  return 'Monitor';
+}
+
+function eventSummary(event: EventView | null | undefined): string {
+  if (!event) return 'No disruption signal is active.';
+  return `${humanizeEvent(event.type)} from ${humanizeLabel(event.source)} affecting ${event.entity_ids.join(', ') || 'the network'}`;
 }
 
 function snapshotEntries(snapshot: Record<string, unknown>): Array<[string, string]> {
@@ -137,6 +172,7 @@ export function Agent({
   const [scenario, setScenario] = useState<ScenarioName>('supplier_delay');
   const [visibleStepCount, setVisibleStepCount] = useState(0);
   const [selectedStepIndex, setSelectedStepIndex] = useState(0);
+  const [workspace, setWorkspace] = useState<WorkspaceView>('full');
 
   const steps = trace?.steps ?? [];
   const displayedSteps = steps.slice(0, visibleStepCount);
@@ -144,6 +180,10 @@ export function Agent({
   const selectedPlan = approvalDetail?.plan ?? pendingApproval?.plan ?? trace?.latest_plan ?? summary?.latest_plan ?? null;
   const candidatePlans = trace?.candidate_evaluations ?? [];
   const alternativePlans = candidatePlans.filter((item) => item.strategy_label !== trace?.selected_strategy);
+  const currentEvent = trace?.event ?? summary?.active_events[0] ?? null;
+  const hasReflection = steps.some((step) => step.agent === 'reflection');
+  const executionComplete = trace?.execution_status === 'executed' || trace?.execution_status === 'completed';
+  const latestVisibleStepIndex = displayedSteps.length - 1;
 
   useEffect(() => {
     if (!trace?.trace_id || steps.length === 0) {
@@ -181,6 +221,65 @@ export function Agent({
       ? 'Recommendation ready'
       : 'No recommendations generated yet';
 
+  const workflowStages = useMemo(() => {
+    const monitorComplete = Boolean(summary);
+    const assessComplete = Boolean(currentEvent || exceptionCount > 0 || steps.length > 0);
+    const planComplete = Boolean(selectedPlan);
+    const approvalComplete = executionComplete;
+    const learnComplete = hasReflection;
+
+    return [
+      {
+        key: 'monitor',
+        title: 'Monitor network',
+        status: monitorComplete ? 'complete' : 'active',
+        detail: summary ? `Mode: ${humanizeStatus(summary.mode)}` : 'Load the latest network picture.',
+        action: 'Refresh signals',
+        workspaceTarget: 'operations' as WorkspaceView,
+      },
+      {
+        key: 'assess',
+        title: 'Assess disruption',
+        status: assessComplete ? 'complete' : monitorComplete ? 'active' : 'pending',
+        detail: currentEvent ? eventSummary(currentEvent) : `${exceptionCount} exception signals in queue`,
+        action: 'Review trace',
+        workspaceTarget: 'operations' as WorkspaceView,
+      },
+      {
+        key: 'plan',
+        title: 'Prepare action package',
+        status: planComplete ? 'complete' : assessComplete ? 'active' : 'pending',
+        detail: selectedPlan
+          ? `${humanizeStrategy(selectedPlan.strategy_label)} package prepared`
+          : 'Generate recommendations when the operator is ready.',
+        action: 'Build package',
+        workspaceTarget: 'operations' as WorkspaceView,
+      },
+      {
+        key: 'approve_execute',
+        title: 'Approve or execute',
+        status: pendingApproval ? 'active' : approvalComplete ? 'complete' : planComplete ? 'active' : 'pending',
+        detail: pendingApproval
+          ? approvalDetail?.approval_reason ?? pendingApproval.approval_reason
+          : approvalComplete
+            ? 'Recommended actions were executed successfully.'
+            : 'Execution will proceed automatically only when no approval gate is triggered.',
+        action: pendingApproval ? 'Open approval queue' : 'Review execution',
+        workspaceTarget: 'approval' as WorkspaceView,
+      },
+      {
+        key: 'learn',
+        title: 'Capture learning',
+        status: learnComplete ? 'complete' : approvalComplete ? 'active' : 'pending',
+        detail: learnComplete
+          ? 'Reflection memory was recorded for future runs.'
+          : 'Learning is recorded after execution completes.',
+        action: 'Review full flow',
+        workspaceTarget: 'full' as WorkspaceView,
+      },
+    ] as const;
+  }, [approvalDetail?.approval_reason, currentEvent, exceptionCount, executionComplete, hasReflection, pendingApproval, selectedPlan, steps.length, summary]);
+
   const workQueue = useMemo(() => {
     if (!summary) return [];
     return [
@@ -200,9 +299,36 @@ export function Agent({
         detail: selectedPlan
           ? `${humanizeStrategy(selectedPlan.strategy_label)} recommendation prepared`
           : 'Generate recommendations when exceptions require action',
-      },
+        },
     ];
   }, [exceptionCount, recommendationState, selectedPlan, summary]);
+
+  const workspaceOptions = [
+    {
+      key: 'full' as WorkspaceView,
+      label: 'Full flow',
+      detail: 'End-to-end operating view',
+    },
+    {
+      key: 'operations' as WorkspaceView,
+      label: 'Operations console',
+      detail: currentEvent ? 'Live network management' : 'Daily operations review',
+    },
+    {
+      key: 'scenario' as WorkspaceView,
+      label: 'Scenario lab',
+      detail: 'Simulation only',
+    },
+    {
+      key: 'approval' as WorkspaceView,
+      label: 'Approval queue',
+      detail: pendingApproval ? '1 decision awaiting review' : 'No pending approvals',
+    },
+  ];
+
+  const showOperations = workspace === 'full' || workspace === 'operations';
+  const showScenario = workspace === 'full' || workspace === 'scenario';
+  const showApproval = workspace === 'full' || workspace === 'approval';
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 pb-10">
@@ -226,12 +352,71 @@ export function Agent({
         </div>
       </header>
 
+      <section className="space-y-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-[24px] font-bold text-nearBlack">Operator Workflow</h2>
+            <p className="mt-1 text-[14px] text-secondaryGray">
+              The control tower runs through a fixed operating cadence: monitor, assess, plan, approve or execute, then learn.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
+          {workflowStages.map((stage, index) => (
+            <button
+              key={stage.key}
+              type="button"
+              onClick={() => setWorkspace(stage.workspaceTarget)}
+              className={`rounded-[20px] border p-4 text-left transition-all ${stageTone(stage.status)}`}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <span className="rounded-full bg-pureWhite/80 px-2 py-1 text-[11px] font-semibold uppercase tracking-wider">
+                  Stage {index + 1}
+                </span>
+                <span className="text-[11px] font-semibold uppercase tracking-wider">
+                  {humanizeStatus(stage.status)}
+                </span>
+              </div>
+              <div className="mt-3 text-[17px] font-bold">{stage.title}</div>
+              <p className="mt-2 text-[13px] leading-5">{stage.detail}</p>
+              <div className="mt-3 text-[12px] font-semibold uppercase tracking-wider text-secondaryGray">
+                {stage.action}
+              </div>
+            </button>
+          ))}
+        </div>
+
+        <div className="rounded-[24px] border border-borderGray bg-pureWhite p-4 shadow-card">
+          <div className="flex flex-wrap gap-3">
+            {workspaceOptions.map((option) => (
+              <button
+                key={option.key}
+                type="button"
+                onClick={() => setWorkspace(option.key)}
+                className={`rounded-full border px-4 py-3 text-left transition-all ${
+                  workspace === option.key
+                    ? 'border-nearBlack bg-nearBlack text-pureWhite'
+                    : 'border-borderGray bg-lightSurface text-nearBlack hover:bg-pureWhite'
+                }`}
+              >
+                <div className="text-[13px] font-bold uppercase tracking-wider">{option.label}</div>
+                <div className={`mt-1 text-[12px] ${workspace === option.key ? 'text-pureWhite/80' : 'text-secondaryGray'}`}>
+                  {option.detail}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {error ? (
         <div className="rounded-card border border-errorRed/20 bg-errorRed/5 px-5 py-4 text-[14px] text-errorRed">
           {error}
         </div>
       ) : null}
 
+      {showOperations ? (
       <section className="space-y-5">
         <div className="flex items-center justify-between">
           <div>
@@ -300,11 +485,11 @@ export function Agent({
                   <p className="mt-2 text-[13px] text-secondaryGray">{item.detail}</p>
                 </div>
               ))}
-            </div>
+              </div>
 
-            <div className="mt-6 rounded-card border border-borderGray bg-lightSurface px-5 py-5">
-              <div className="flex items-start justify-between gap-4">
-                <div>
+              <div className="mt-6 rounded-card border border-borderGray bg-lightSurface px-5 py-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
                   <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Recommendation package</div>
                   <div className="mt-2 text-[20px] font-bold text-nearBlack">
                     {selectedPlan ? humanizeStrategy(selectedPlan.strategy_label) : 'No recommendation generated yet'}
@@ -360,7 +545,9 @@ export function Agent({
           </div>
         </div>
       </section>
+      ) : null}
 
+      {showOperations ? (
       <section className="space-y-5">
         <div>
           <h2 className="text-[24px] font-bold text-nearBlack">Trace Visualization</h2>
@@ -427,10 +614,18 @@ export function Agent({
                           <span className="rounded-full bg-lightSurface px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-secondaryGray">
                             Step {index + 1}
                           </span>
+                          <span className="rounded-full border border-borderGray bg-pureWhite px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-secondaryGray">
+                            {tracePhase(step.agent)}
+                          </span>
                           <span className="text-[16px] font-bold text-nearBlack">{humanizeNode(step.agent)}</span>
                           {step.llm_used ? (
                             <span className="rounded-full bg-rausch/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-rausch">
                               AI-assisted
+                            </span>
+                          ) : null}
+                          {index === latestVisibleStepIndex ? (
+                            <span className="rounded-full bg-nearBlack px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-pureWhite">
+                              Active
                             </span>
                           ) : null}
                         </div>
@@ -455,6 +650,9 @@ export function Agent({
                     <span className="text-[18px] font-bold text-nearBlack">{humanizeNode(selectedStep.agent)}</span>
                     <span className="rounded-full bg-lightSurface px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-secondaryGray">
                       {humanizeLabel(selectedStep.node_type)}
+                    </span>
+                    <span className="rounded-full border border-borderGray bg-pureWhite px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-secondaryGray">
+                      {tracePhase(selectedStep.agent)}
                     </span>
                   </div>
                   <p className="mt-2 text-[14px] text-secondaryGray">{selectedStep.summary}</p>
@@ -482,6 +680,24 @@ export function Agent({
                     <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Observations</div>
                     <ul className="mt-3 space-y-2 text-[13px] text-secondaryGray">
                       {selectedStep.observations.map((item) => <li key={item}>• {item}</li>)}
+                    </ul>
+                  </div>
+                ) : null}
+
+                {selectedStep.risks.length ? (
+                  <div>
+                    <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Risks flagged</div>
+                    <ul className="mt-3 space-y-2 text-[13px] text-secondaryGray">
+                      {selectedStep.risks.map((item) => <li key={item}>• {item}</li>)}
+                    </ul>
+                  </div>
+                ) : null}
+
+                {selectedStep.downstream_impacts.length ? (
+                  <div>
+                    <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Downstream impact</div>
+                    <ul className="mt-3 space-y-2 text-[13px] text-secondaryGray">
+                      {selectedStep.downstream_impacts.map((item) => <li key={item}>• {item}</li>)}
                     </ul>
                   </div>
                 ) : null}
@@ -518,7 +734,9 @@ export function Agent({
           </div>
         </div>
       </section>
+      ) : null}
 
+      {showScenario ? (
       <section className="space-y-5">
         <div>
           <h2 className="text-[24px] font-bold text-nearBlack">Scenario Lab</h2>
@@ -612,7 +830,9 @@ export function Agent({
           </div>
         </div>
       </section>
+      ) : null}
 
+      {showApproval ? (
       <section className="space-y-5">
         <div>
           <h2 className="text-[24px] font-bold text-nearBlack">Approval Queue</h2>
@@ -668,6 +888,18 @@ export function Agent({
                     <div className="mt-2 text-[20px] font-bold text-nearBlack">{humanizeStrategy(approvalDetail.plan.strategy_label)}</div>
                     <p className="mt-2 text-[14px] text-secondaryGray">
                       {approvalDetail.selection_reason || approvalDetail.plan.planner_reasoning}
+                    </p>
+                  </div>
+
+                  <div className="rounded-card border border-borderGray bg-pureWhite px-5 py-5">
+                    <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Trigger signal</div>
+                    <div className="mt-2 text-[16px] font-bold text-nearBlack">
+                      {currentEvent ? humanizeEvent(currentEvent.type) : `${approvalDetail.event_ids.length} disruption signals linked`}
+                    </div>
+                    <p className="mt-2 text-[14px] text-secondaryGray">
+                      {currentEvent
+                        ? `${eventSummary(currentEvent)}. Severity ${currentEvent.severity.toFixed(2)}.`
+                        : 'This recommendation package is linked to a previously recorded disruption.'}
                     </p>
                   </div>
 
@@ -747,6 +979,7 @@ export function Agent({
           )}
         </div>
       </section>
+      ) : null}
     </div>
   );
 }
