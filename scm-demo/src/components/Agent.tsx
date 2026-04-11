@@ -578,31 +578,31 @@ export function Agent({
               </p>
             </div>
 
-            <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.65fr)_minmax(320px,0.85fr)]">
               <div className="rounded-[24px] border border-borderGray bg-pureWhite p-6 shadow-card">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                  <div className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="grid min-w-0 flex-1 grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-4">
                     <div className="rounded-card border border-borderGray bg-lightSurface px-4 py-3">
-                      <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Service level</div>
-                      <div className="mt-1 text-[22px] font-bold text-nearBlack">
+                      <div className="text-[12px] uppercase tracking-wider text-secondaryGray leading-tight">Service level</div>
+                      <div className="mt-1 whitespace-nowrap text-[22px] font-bold leading-tight text-nearBlack">
                         {summary ? formatPercent(summary.kpis.service_level) : '--'}
                       </div>
                     </div>
                     <div className="rounded-card border border-borderGray bg-lightSurface px-4 py-3">
-                      <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Recovery speed</div>
-                      <div className="mt-1 text-[22px] font-bold text-nearBlack">
+                      <div className="text-[12px] uppercase tracking-wider text-secondaryGray leading-tight">Recovery speed</div>
+                      <div className="mt-1 whitespace-nowrap text-[22px] font-bold leading-tight text-nearBlack">
                         {summary ? formatPercent(summary.kpis.recovery_speed) : '--'}
                       </div>
                     </div>
                     <div className="rounded-card border border-borderGray bg-lightSurface px-4 py-3">
-                      <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Disruption risk</div>
-                      <div className="mt-1 text-[22px] font-bold text-nearBlack">
+                      <div className="text-[12px] uppercase tracking-wider text-secondaryGray leading-tight">Disruption risk</div>
+                      <div className="mt-1 whitespace-nowrap text-[22px] font-bold leading-tight text-nearBlack">
                         {summary ? formatPercent(summary.kpis.disruption_risk) : '--'}
                       </div>
                     </div>
                     <div className="rounded-card border border-borderGray bg-lightSurface px-4 py-3">
-                      <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Decision latency</div>
-                      <div className="mt-1 text-[22px] font-bold text-nearBlack">
+                      <div className="text-[12px] uppercase tracking-wider text-secondaryGray leading-tight">Decision latency</div>
+                      <div className="mt-1 whitespace-nowrap text-[22px] font-bold leading-tight text-nearBlack">
                         {summary ? `${summary.kpis.decision_latency_ms.toFixed(0)} ms` : '--'}
                       </div>
                     </div>
