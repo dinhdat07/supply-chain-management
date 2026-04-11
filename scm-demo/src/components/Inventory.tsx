@@ -16,20 +16,12 @@ export function Inventory({ items, loading, error }: InventoryProps) {
   const filtered = items.filter((item) =>
     item.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (item.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (item.category || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
     item.preferred_supplier_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
     item.warehouse_id.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
-      <header className="flex justify-between items-end">
-        <div>
-          <h1 className="text-[28px] font-bold text-nearBlack tracking-[-0.18px] mb-2">Inventory</h1>
-          <p className="text-[16px] text-secondaryGray font-medium">Live digital-twin inventory state across SKUs and warehouses.</p>
-        </div>
-      </header>
-
       {error ? (
         <div className="rounded-card border border-errorRed/20 bg-errorRed/5 px-5 py-4 text-[14px] text-errorRed">
           {error}
@@ -55,7 +47,6 @@ export function Inventory({ items, loading, error }: InventoryProps) {
             <thead>
               <tr className="bg-pureWhite border-b border-borderGray text-[13px] font-bold text-secondaryGray uppercase tracking-wider">
                 <th className="px-6 py-4">Product</th>
-                <th className="px-6 py-4">Category</th>
                 <th className="px-6 py-4">Warehouse</th>
                 <th className="px-6 py-4">Primary Supplier</th>
                 <th className="px-6 py-4">On Hand</th>
@@ -71,7 +62,6 @@ export function Inventory({ items, loading, error }: InventoryProps) {
                     <div className="font-semibold text-nearBlack text-[14px]">{item.name || humanizeEntityId(item.sku)}</div>
                     <div className="mt-1 text-[12px] text-secondaryGray">{item.sku}</div>
                   </td>
-                  <td className="px-6 py-4 text-[14px] text-nearBlack font-medium">{item.category || "General"}</td>
                   <td className="px-6 py-4 text-[14px] text-nearBlack font-medium">{entityReference(item.warehouse_id)}</td>
                   <td className="px-6 py-4 text-[14px] text-secondaryGray">{entityReference(item.preferred_supplier_id)}</td>
                   <td className={`px-6 py-4 text-[14px] font-bold ${item.on_hand <= item.reorder_point ? 'text-errorRed' : 'text-nearBlack'}`}>
