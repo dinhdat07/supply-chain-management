@@ -16,6 +16,13 @@ const LABEL_MAP: Record<string, string> = {
   approval_pending: 'Awaiting approval',
   pending_approval: 'Awaiting approval',
   approved_and_applied: 'Approved and executed',
+  daily_cycle: 'Planning cycle',
+  event_response: 'Disruption response',
+  scenario_step: 'Scenario simulation',
+  approval_resolution: 'Approval resolution',
+  simulation: 'Simulation',
+  completed: 'Completed',
+  failed: 'Failed',
   safer_plan_pending: 'Safer alternative awaiting approval',
   safer_plan_auto_applied: 'Safer alternative auto-applied',
   refresh_network: 'Refresh network state',
@@ -34,9 +41,7 @@ const LABEL_MAP: Record<string, string> = {
   critic: 'Critic agent',
   approval: 'Approval gate',
   execution: 'Execution',
-  approval_resolution: 'Approval resolution',
   reflection: 'Reflection and memory',
-  completed: 'Completed',
   running: 'Running',
   executed: 'Executed',
   requires_approval: 'Awaiting approval',
@@ -176,6 +181,26 @@ export function formatCurrency(value: number | null | undefined): string {
     currency: 'USD',
     maximumFractionDigits: 0,
   }).format(value);
+}
+
+export function formatDateTime(value: string | null | undefined): string {
+  if (!value) return '--';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(parsed);
+}
+
+export function formatDurationMs(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(value)) return '--';
+  if (value >= 1000) {
+    return `${(value / 1000).toFixed(2)} s`;
+  }
+  return `${Math.round(value)} ms`;
 }
 
 export function formatMetricDelta(before: number, after: number, kind: 'percent' | 'currency' | 'number' = 'number'): string {

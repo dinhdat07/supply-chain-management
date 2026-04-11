@@ -16,15 +16,23 @@ function App() {
     pendingApproval,
     approvalDetail,
     scenarioPreview,
+    runHistory,
+    selectedRun,
+    selectedRunTrace,
+    selectedRunState,
+    selectedRunDecision,
+    selectedRunExecution,
     loading,
     refreshing,
     actionLoading,
+    historyLoading,
     error,
     refresh,
     previewScenario,
     runDailyPlan,
     runScenario,
     applyApproval,
+    selectRun,
   } = useControlTower();
 
   const renderContent = () => {
@@ -50,15 +58,23 @@ function App() {
             pendingApproval={pendingApproval}
             approvalDetail={approvalDetail}
             scenarioPreview={scenarioPreview}
+            runHistory={runHistory}
+            selectedRun={selectedRun}
+            selectedRunTrace={selectedRunTrace}
+            selectedRunState={selectedRunState}
+            selectedRunDecision={selectedRunDecision}
+            selectedRunExecution={selectedRunExecution}
             loading={loading}
             refreshing={refreshing}
             actionLoading={actionLoading}
+            historyLoading={historyLoading}
             error={error}
             onRefresh={refresh}
             onPreviewScenario={previewScenario}
             onGenerateRecommendations={runDailyPlan}
             onRunScenario={runScenario}
             onApprovalAction={applyApproval}
+            onSelectRun={selectRun}
           />
         );
       default:
