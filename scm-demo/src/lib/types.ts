@@ -46,6 +46,9 @@ export interface CandidateEvaluationView {
   score: number;
   score_breakdown: Record<string, number>;
   projected_kpis: KPIView;
+  feasible?: boolean;
+  violations?: Array<{ code: string; message: string; action_id?: string | null; severity: string }>;
+  mode_rationale?: string;
   approval_required: boolean;
   approval_reason: string;
   rationale: string;
@@ -59,6 +62,9 @@ export interface PlanView {
   status: string;
   score: number;
   score_breakdown: Record<string, number>;
+  feasible?: boolean;
+  violations?: Array<{ code: string; message: string; action_id?: string | null; severity: string }>;
+  mode_rationale?: string;
   strategy_label?: string | null;
   generated_by?: string | null;
   approval_required: boolean;
@@ -103,11 +109,14 @@ export interface ApprovalDetailView {
 }
 
 export interface AgentStepView {
+  step_id?: string | null;
+  sequence?: number;
   agent: string;
   node_type: string;
   status: string;
   started_at: string;
   completed_at?: string | null;
+  duration_ms?: number | null;
   mode_snapshot: string;
   summary: string;
   reasoning_source: string;
@@ -120,6 +129,8 @@ export interface AgentStepView {
   tradeoffs: string[];
   llm_used: boolean;
   llm_error?: string | null;
+  fallback_used?: boolean;
+  fallback_reason?: string | null;
 }
 
 export interface RouteDecisionView {
@@ -130,6 +141,7 @@ export interface RouteDecisionView {
 }
 
 export interface TraceView {
+  run_id?: string | null;
   trace_id?: string | null;
   status: string;
   started_at?: string | null;
@@ -236,6 +248,129 @@ export interface ApprovalCommandResultResponse {
   pending_approval?: PendingApprovalView | null;
   latest_trace?: TraceView | null;
   summary?: ControlTowerSummaryResponse | null;
+}
+
+export interface SelectedPlanSummaryView {
+  plan_id: string;
+  strategy_label?: string | null;
+  generated_by?: string | null;
+  approval_required: boolean;
+  approval_reason: string;
+  score: number;
+  action_ids: string[];
+}
+
+export interface ExecutionSummaryView {
+  status: string;
+  dispatch_mode: string;
+  action_ids: string[];
+}
+
+export interface RunView {
+  run_id: string;
+  run_type: string;
+  parent_run_id?: string | null;
+  correlation_id: string;
+  trigger_event_id?: string | null;
+  input_event_ids: string[];
+  mode_before: string;
+  mode_after: string;
+  status: string;
+  started_at: string;
+  completed_at?: string | null;
+  duration_ms: number;
+  decision_id?: string | null;
+  selected_plan_id?: string | null;
+  execution_id?: string | null;
+  approval_status?: string | null;
+  llm_fallback_used: boolean;
+  llm_fallback_reason?: string | null;
+  selected_plan_summary?: SelectedPlanSummaryView | null;
+  execution_summary?: ExecutionSummaryView | null;
+}
+
+export interface RunListResponse {
+  items: RunView[];
+  total: number;
+}
+
+export interface RunDetailResponse {
+  item: RunView;
+}
+
+export interface ControlTowerStateView {
+  summary: ControlTowerSummaryResponse;
+  inventory: InventoryRowView[];
+  suppliers: SupplierRowView[];
+  reflections: ReflectionView[];
+  latest_trace?: TraceView | null;
+}
+
+export interface RunStateResponse {
+  run: RunView;
+  state: ControlTowerStateView;
+}
+
+export interface ExecutionReceiptView {
+  receipt_id: string;
+  action_id: string;
+  status: string;
+  detail: string;
+}
+
+export interface ExecutionTransitionView {
+  status: string;
+  timestamp: string;
+  reason: string;
+}
+
+export interface ExecutionRecordView {
+  execution_id: string;
+  run_id: string;
+  decision_id?: string | null;
+  plan_id?: string | null;
+  status: string;
+  dispatch_mode: string;
+  dry_run: boolean;
+  target_system: string;
+  action_ids: string[];
+  receipts: ExecutionReceiptView[];
+  status_history: ExecutionTransitionView[];
+  failure_reason?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExecutionDetailResponse {
+  item: ExecutionRecordView;
+}
+
+export interface DecisionLogDetailView {
+  decision_id: string;
+  plan_id: string;
+  approval_status: string;
+  approval_required: boolean;
+  approval_reason: string;
+  rationale: string;
+  selection_reason: string;
+  mode_rationale: string;
+  winning_factors: string[];
+  score_breakdown: Record<string, number>;
+  selected_actions: string[];
+  rejected_actions: Array<Record<string, string>>;
+  candidate_evaluations: CandidateEvaluationView[];
+  critic_summary?: string | null;
+  critic_findings: string[];
+  llm_used: boolean;
+  llm_provider?: string | null;
+  llm_model?: string | null;
+  llm_error?: string | null;
+  before_kpis: KPIView;
+  after_kpis: KPIView;
+}
+
+export interface DecisionLogDetailResponse {
+  item: DecisionLogDetailView;
 }
 
 export interface WhatIfSummary {

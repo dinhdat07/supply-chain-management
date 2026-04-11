@@ -3,8 +3,13 @@ import type {
   ApprovalCommandResultResponse,
   ApprovalDetailResponse,
   ControlTowerSummaryResponse,
+  DecisionLogDetailResponse,
+  ExecutionDetailResponse,
   InventoryListResponse,
   PendingApprovalResponse,
+  RunDetailResponse,
+  RunListResponse,
+  RunStateResponse,
   ScenarioName,
   SupplierListResponse,
   TraceResponse,
@@ -52,6 +57,30 @@ export function fetchSuppliers() {
 
 export function fetchTrace() {
   return requestJson<TraceResponse>('/trace/latest');
+}
+
+export function fetchRuns() {
+  return requestJson<RunListResponse>('/runs?limit=12');
+}
+
+export function fetchRun(runId: string) {
+  return requestJson<RunDetailResponse>(`/runs/${runId}`);
+}
+
+export function fetchRunTrace(runId: string) {
+  return requestJson<TraceResponse>(`/runs/${runId}/trace`);
+}
+
+export function fetchRunState(runId: string) {
+  return requestJson<RunStateResponse>(`/runs/${runId}/state`);
+}
+
+export function fetchExecution(executionId: string) {
+  return requestJson<ExecutionDetailResponse>(`/execution/${executionId}`);
+}
+
+export function fetchDecisionDetail(decisionId: string) {
+  return requestJson<DecisionLogDetailResponse>(`/decision-logs/${decisionId}`);
 }
 
 export function fetchPendingApproval() {
