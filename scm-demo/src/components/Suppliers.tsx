@@ -1,7 +1,7 @@
 import { Star, ShieldCheck, Clock, DollarSign } from 'lucide-react';
 
 import type { SupplierRowView } from '../lib/types';
-import { humanizeStatus } from '../lib/presenters';
+import { entityReference, humanizeEntityId, humanizeStatus } from '../lib/presenters';
 
 interface SuppliersProps {
   items: SupplierRowView[];
@@ -31,13 +31,14 @@ export function Suppliers({ items, loading, error }: SuppliersProps) {
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
         {items.map((supplier) => (
           <div key={`${supplier.supplier_id}-${supplier.sku}`} className="bg-pureWhite rounded-card shadow-card border border-borderGray hover:shadow-hover transition-all flex flex-col p-6">
             <div className="flex justify-between items-start mb-6">
               <div>
-                <h2 className="text-[22px] font-semibold text-nearBlack tracking-[-0.44px]">{supplier.supplier_id}</h2>
-                <p className="mt-1 text-[13px] font-medium uppercase tracking-wider text-secondaryGray">{supplier.sku}</p>
+                <h2 className="text-[22px] font-semibold text-nearBlack tracking-[-0.44px]">{humanizeEntityId(supplier.supplier_id)}</h2>
+                <p className="mt-1 text-[13px] font-medium text-secondaryGray">{supplier.supplier_id}</p>
+                <p className="mt-2 text-[13px] font-medium uppercase tracking-wider text-secondaryGray">{entityReference(supplier.sku)}</p>
               </div>
               <div className="flex items-center gap-1 bg-lightSurface px-2 py-1 rounded-badge">
                 <Star size={14} className="text-rausch fill-rausch" />

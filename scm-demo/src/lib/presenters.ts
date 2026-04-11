@@ -51,6 +51,22 @@ const LABEL_MAP: Record<string, string> = {
   switch_supplier: 'Switch supplier',
   rebalance: 'Rebalance',
   no_op: 'No action',
+  SKU_1: 'Cold-Chain Sensor Kit',
+  SKU_2: 'Thermal Pallet Liner',
+  SKU_3: 'Infusion Pump Cartridge',
+  SUP_A: 'NorthStar Components',
+  SUP_B: 'BlueWave Express Supply',
+  SUP_C: 'Mekong Packaging Co.',
+  SUP_D: 'Delta Rapid Fulfillment',
+  SUP_E: 'Atlas Medical Parts',
+  SUP_F: 'Pacific Resilience Supply',
+  R1: 'North Port Corridor',
+  R2: 'Mekong Inland Route',
+  R3: 'Central Express Route',
+  R4: 'Priority Air Corridor',
+  R5: 'Canal Consolidation Route',
+  WH_NORTH: 'Hanoi Regional DC',
+  WH_SOUTH: 'Ho Chi Minh City Regional DC',
 };
 
 function titleCase(raw: string): string {
@@ -93,6 +109,12 @@ export function humanizeAction(raw: string | null | undefined): string {
 
 export function humanizeEntityId(raw: string | null | undefined): string {
   return humanizeLabel(raw);
+}
+
+export function entityReference(raw: string | null | undefined): string {
+  if (!raw) return '';
+  const friendly = humanizeEntityId(raw);
+  return friendly === raw ? raw : `${friendly} (${raw})`;
 }
 
 export function describeActionTitle(actionType: string | null | undefined, targetId: string | null | undefined): string {

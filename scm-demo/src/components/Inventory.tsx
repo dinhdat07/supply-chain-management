@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Search } from 'lucide-react';
 
 import type { InventoryRowView } from '../lib/types';
-import { humanizeStatus } from '../lib/presenters';
+import { entityReference, humanizeEntityId, humanizeStatus } from '../lib/presenters';
 
 interface InventoryProps {
   items: InventoryRowView[];
@@ -15,8 +15,11 @@ export function Inventory({ items, loading, error }: InventoryProps) {
 
   const filtered = items.filter((item) =>
     item.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    humanizeEntityId(item.sku).toLowerCase().includes(searchTerm.toLowerCase()) ||
     item.preferred_supplier_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.warehouse_id.toLowerCase().includes(searchTerm.toLowerCase())
+    humanizeEntityId(item.preferred_supplier_id).toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.warehouse_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    humanizeEntityId(item.warehouse_id).toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -52,26 +55,29 @@ export function Inventory({ items, loading, error }: InventoryProps) {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-pureWhite border-b border-borderGray text-[13px] font-bold text-secondaryGray uppercase tracking-wider">
-                <th className="px-6 py-4">SKU</th>
+                <th className="px-6 py-4">Product</th>
                 <th className="px-6 py-4">Warehouse</th>
+                <th className="px-6 py-4">Primary Supplier</th>
                 <th className="px-6 py-4">On Hand</th>
                 <th className="px-6 py-4">Incoming</th>
                 <th className="px-6 py-4">Forecast</th>
-                <th className="px-6 py-4">Reorder Point</th>
                 <th className="px-6 py-4">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-borderGray">
               {filtered.map((item) => (
                 <tr key={item.sku} className={`hover:bg-lightSurface/50 transition-colors ${item.status === 'low' ? 'bg-errorRed/5' : ''}`}>
-                  <td className="px-6 py-4 font-semibold text-nearBlack text-[14px]">{item.sku}</td>
-                  <td className="px-6 py-4 text-[14px] text-nearBlack font-medium">{item.warehouse_id}</td>
+                  <td className="px-6 py-4">
+                    <div className="font-semibold text-nearBlack text-[14px]">{humanizeEntityId(item.sku)}</div>
+                    <div className="mt-1 text-[12px] text-secondaryGray">{item.sku}</div>
+                  </td>
+                  <td className="px-6 py-4 text-[14px] text-nearBlack font-medium">{entityReference(item.warehouse_id)}</td>
+                  <td className="px-6 py-4 text-[14px] text-secondaryGray">{entityReference(item.preferred_supplier_id)}</td>
                   <td className={`px-6 py-4 text-[14px] font-bold ${item.on_hand <= item.reorder_point ? 'text-errorRed' : 'text-nearBlack'}`}>
                     {item.on_hand}
                   </td>
                   <td className="px-6 py-4 text-[14px] text-secondaryGray">{item.incoming_qty}</td>
                   <td className="px-6 py-4 text-[14px] text-secondaryGray">{item.forecast_qty}</td>
-                  <td className="px-6 py-4 text-[14px] text-secondaryGray">{item.reorder_point}</td>
                   <td className="px-6 py-4">
                     {item.status === 'in_stock' && (
                       <span className="inline-flex px-3 py-1 rounded-badge bg-green-100 text-green-800 text-[12px] font-semibold tracking-[-0.18px]">
