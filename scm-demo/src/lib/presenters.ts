@@ -1,0 +1,196 @@
+const LABEL_MAP: Record<string, string> = {
+  normal: 'Stable operations',
+  crisis: 'Disruption response',
+  supplier_delay: 'Supplier delay',
+  demand_spike: 'Demand spike',
+  route_blockage: 'Route blockage',
+  compound_disruption: 'Compound disruption',
+  cost_first: 'Cost-first',
+  balanced: 'Balanced',
+  resilience_first: 'Resilience-first',
+  auto_applied: 'Auto-applied',
+  approved: 'Approved',
+  rejected: 'Rejected',
+  pending: 'Awaiting approval',
+  not_required: 'No approval needed',
+  approval_pending: 'Awaiting approval',
+  pending_approval: 'Awaiting approval',
+  approved_and_applied: 'Approved and executed',
+  safer_plan_pending: 'Safer alternative awaiting approval',
+  safer_plan_auto_applied: 'Safer alternative auto-applied',
+  refresh_network: 'Refresh network state',
+  daily_plan: 'Generate recommendations',
+  ai_assisted_reasoning: 'AI-assisted reasoning',
+  deterministic_or_fallback: 'Deterministic or fallback reasoning',
+  deterministic_execution_guard: 'Deterministic execution guard',
+  deterministic_policy_guardrail: 'Deterministic policy guardrail',
+  human_approval_action: 'Operator approval action',
+  risk: 'Risk agent',
+  demand: 'Demand agent',
+  inventory: 'Inventory agent',
+  supplier: 'Supplier agent',
+  logistics: 'Logistics agent',
+  planner: 'Planner agent',
+  critic: 'Critic agent',
+  approval: 'Approval gate',
+  execution: 'Execution',
+  approval_resolution: 'Approval resolution',
+  reflection: 'Reflection and memory',
+  completed: 'Completed',
+  running: 'Running',
+  executed: 'Executed',
+  requires_approval: 'Awaiting approval',
+  in_stock: 'In stock',
+  low: 'Low stock',
+  at_risk: 'At risk',
+  out_of_stock: 'Out of stock',
+  active: 'Active',
+  degraded: 'Degraded',
+  reroute: 'Reroute',
+  reorder: 'Reorder',
+  switch_supplier: 'Switch supplier',
+  rebalance: 'Rebalance',
+  no_op: 'No action',
+  SKU_1: 'Cold-Chain Sensor Kit',
+  SKU_2: 'Thermal Pallet Liner',
+  SKU_3: 'Infusion Pump Cartridge',
+  SUP_A: 'NorthStar Components',
+  SUP_B: 'BlueWave Express Supply',
+  SUP_C: 'Mekong Packaging Co.',
+  SUP_D: 'Delta Rapid Fulfillment',
+  SUP_E: 'Atlas Medical Parts',
+  SUP_F: 'Pacific Resilience Supply',
+  R1: 'North Port Corridor',
+  R2: 'Mekong Inland Route',
+  R3: 'Central Express Route',
+  R4: 'Priority Air Corridor',
+  R5: 'Canal Consolidation Route',
+  WH_NORTH: 'Hanoi Regional DC',
+  WH_SOUTH: 'Ho Chi Minh City Regional DC',
+};
+
+function titleCase(raw: string): string {
+  return raw
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((part) => {
+      if (/^[A-Z0-9]+$/.test(part) && part.length <= 6) {
+        return part;
+      }
+      return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+    })
+    .join(' ');
+}
+
+export function humanizeLabel(raw: string | null | undefined): string {
+  if (!raw) return 'Not available';
+  return LABEL_MAP[raw] ?? titleCase(raw);
+}
+
+export function humanizeNode(raw: string | null | undefined): string {
+  return humanizeLabel(raw);
+}
+
+export function humanizeStatus(raw: string | null | undefined): string {
+  return humanizeLabel(raw);
+}
+
+export function humanizeStrategy(raw: string | null | undefined): string {
+  return humanizeLabel(raw);
+}
+
+export function humanizeEvent(raw: string | null | undefined): string {
+  return humanizeLabel(raw);
+}
+
+export function humanizeAction(raw: string | null | undefined): string {
+  return humanizeLabel(raw);
+}
+
+export function humanizeEntityId(raw: string | null | undefined): string {
+  return humanizeLabel(raw);
+}
+
+export function entityReference(raw: string | null | undefined): string {
+  if (!raw) return '';
+  const friendly = humanizeEntityId(raw);
+  return friendly === raw ? raw : `${friendly} (${raw})`;
+}
+
+export function describeActionTitle(actionType: string | null | undefined, targetId: string | null | undefined): string {
+  const target = humanizeEntityId(targetId);
+  switch (actionType) {
+    case 'reroute':
+      return `Reroute through ${target}`;
+    case 'reorder':
+      return `Replenish ${target}`;
+    case 'switch_supplier':
+    case 'supplier':
+      return `Shift supply to ${target}`;
+    case 'rebalance':
+      return `Rebalance inventory for ${target}`;
+    case 'no_op':
+      return 'Hold current operating plan';
+    default:
+      return `${humanizeAction(actionType)} ${target}`.trim();
+  }
+}
+
+export function describeActionTarget(actionType: string | null | undefined, targetId: string | null | undefined): string {
+  const target = humanizeEntityId(targetId);
+  switch (actionType) {
+    case 'reroute':
+      return `Transportation path: ${target}`;
+    case 'reorder':
+      return `Inventory item: ${target}`;
+    case 'switch_supplier':
+    case 'supplier':
+      return `Supplier move: ${target}`;
+    case 'rebalance':
+      return `Inventory move: ${target}`;
+    default:
+      return `Operational focus: ${target}`;
+  }
+}
+
+export function humanizeReasoningSource(raw: string | null | undefined): string {
+  return humanizeLabel(raw);
+}
+
+export function severitySummary(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(value)) return 'Severity not available';
+  if (value >= 0.8) return 'High severity';
+  if (value >= 0.5) return 'Moderate severity';
+  return 'Low severity';
+}
+
+export function formatPercent(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(value)) return '--';
+  return `${(value * 100).toFixed(1)}%`;
+}
+
+export function formatCurrency(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(value)) return '--';
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+export function formatMetricDelta(before: number, after: number, kind: 'percent' | 'currency' | 'number' = 'number'): string {
+  const delta = after - before;
+  if (kind === 'percent') {
+    return `${delta >= 0 ? '+' : ''}${(delta * 100).toFixed(1)} pts`;
+  }
+  if (kind === 'currency') {
+    return `${delta >= 0 ? '+' : ''}${formatCurrency(delta)}`;
+  }
+  return `${delta >= 0 ? '+' : ''}${delta.toFixed(2)}`;
+}
+
+export function severityTone(level: string | null | undefined): string {
+  if (level === 'critical' || level === 'crisis') return 'critical';
+  if (level === 'warning' || level === 'approval') return 'warning';
+  return 'normal';
+}

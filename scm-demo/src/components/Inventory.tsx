@@ -1,29 +1,25 @@
 import { useState } from 'react';
 import { Search } from 'lucide-react';
 
-const MOCK_INVENTORY = [
-  { sku: 'SKU-001', name: 'Premium Poultry Feed (50kg)', stock: 45, minThreshold: 150, status: 'low' },
-  { sku: 'SKU-002', name: 'Industrial Dehydrator Heating Element', stock: 85, minThreshold: 20, status: 'in_stock' },
-  { sku: 'SKU-003', name: 'Corrugated Poultry Cartons (100-pack)', stock: 0, minThreshold: 50, status: 'out_of_stock' },
-  { sku: 'SKU-004', name: 'Organic Corn Blend (1 Tonne)', stock: 320, minThreshold: 100, status: 'in_stock' },
-  { sku: 'SKU-005', name: 'Vaccine Syringes (Box of 1000)', stock: 12, minThreshold: 50, status: 'low' },
-  { sku: 'SKU-006', name: 'Sanitizing Wash Solution (20L)', stock: 410, minThreshold: 100, status: 'in_stock' },
-  { sku: 'SKU-007', name: 'Conveyor Belt Mesh (Standard)', stock: 3, minThreshold: 5, status: 'low' },
-  { sku: 'SKU-008', name: 'Temperature Sensor Probes', stock: 88, minThreshold: 30, status: 'in_stock' },
-  { sku: 'SKU-009', name: 'Thermal Blankets for Transport', stock: 150, minThreshold: 50, status: 'in_stock' },
-  { sku: 'SKU-010', name: 'Vitamin Mix Additive (5kg)', stock: 0, minThreshold: 25, status: 'out_of_stock' },
-  { sku: 'SKU-011', name: 'Chicken Processing Knives', stock: 65, minThreshold: 40, status: 'in_stock' },
-  { sku: 'SKU-012', name: 'Heavy Duty Cleaning Brushes', stock: 110, minThreshold: 30, status: 'in_stock' },
-  { sku: 'SKU-013', name: 'Safety Gloves (Box of 50)', stock: 25, minThreshold: 100, status: 'low' },
-  { sku: 'SKU-014', name: 'Plastic Shipping Crates', stock: 540, minThreshold: 200, status: 'in_stock' },
-];
+import type { InventoryRowView } from '../lib/types';
+import { entityReference, humanizeEntityId, humanizeStatus } from '../lib/presenters';
 
-export function Inventory() {
+interface InventoryProps {
+  items: InventoryRowView[];
+  loading: boolean;
+  error: string | null;
+}
+
+export function Inventory({ items, loading, error }: InventoryProps) {
   const [searchTerm, setSearchTerm] = useState('');
 
-  const filtered = MOCK_INVENTORY.filter((item) => 
-    item.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    item.sku.toLowerCase().includes(searchTerm.toLowerCase())
+  const filtered = items.filter((item) =>
+    item.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    humanizeEntityId(item.sku).toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.preferred_supplier_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    humanizeEntityId(item.preferred_supplier_id).toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.warehouse_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    humanizeEntityId(item.warehouse_id).toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -31,9 +27,15 @@ export function Inventory() {
       <header className="flex justify-between items-end">
         <div>
           <h1 className="text-[28px] font-bold text-nearBlack tracking-[-0.18px] mb-2">Inventory</h1>
-          <p className="text-[16px] text-secondaryGray font-medium">Manage and track your products.</p>
+          <p className="text-[16px] text-secondaryGray font-medium">Live digital-twin inventory state across SKUs and warehouses.</p>
         </div>
       </header>
+
+      {error ? (
+        <div className="rounded-card border border-errorRed/20 bg-errorRed/5 px-5 py-4 text-[14px] text-errorRed">
+          {error}
+        </div>
+      ) : null}
 
       <div className="bg-pureWhite rounded-card shadow-card border border-borderGray overflow-hidden">
         <div className="p-6 border-b border-borderGray flex justify-between items-center bg-lightSurface">
@@ -53,36 +55,48 @@ export function Inventory() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-pureWhite border-b border-borderGray text-[13px] font-bold text-secondaryGray uppercase tracking-wider">
-                <th className="px-6 py-4">SKU</th>
-                <th className="px-6 py-4">Product Name</th>
-                <th className="px-6 py-4">Current Stock</th>
-                <th className="px-6 py-4">Min Threshold</th>
+                <th className="px-6 py-4">Product</th>
+                <th className="px-6 py-4">Warehouse</th>
+                <th className="px-6 py-4">Primary Supplier</th>
+                <th className="px-6 py-4">On Hand</th>
+                <th className="px-6 py-4">Incoming</th>
+                <th className="px-6 py-4">Forecast</th>
                 <th className="px-6 py-4">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-borderGray">
               {filtered.map((item) => (
                 <tr key={item.sku} className={`hover:bg-lightSurface/50 transition-colors ${item.status === 'low' ? 'bg-errorRed/5' : ''}`}>
-                  <td className="px-6 py-4 font-semibold text-nearBlack text-[14px]">{item.sku}</td>
-                  <td className="px-6 py-4 text-[14px] text-nearBlack font-medium">{item.name}</td>
-                  <td className={`px-6 py-4 text-[14px] font-bold ${item.stock < item.minThreshold ? 'text-errorRed' : 'text-nearBlack'}`}>
-                    {item.stock}
+                  <td className="px-6 py-4">
+                    <div className="font-semibold text-nearBlack text-[14px]">{humanizeEntityId(item.sku)}</div>
+                    <div className="mt-1 text-[12px] text-secondaryGray">{item.sku}</div>
                   </td>
-                  <td className="px-6 py-4 text-[14px] text-secondaryGray">{item.minThreshold}</td>
+                  <td className="px-6 py-4 text-[14px] text-nearBlack font-medium">{entityReference(item.warehouse_id)}</td>
+                  <td className="px-6 py-4 text-[14px] text-secondaryGray">{entityReference(item.preferred_supplier_id)}</td>
+                  <td className={`px-6 py-4 text-[14px] font-bold ${item.on_hand <= item.reorder_point ? 'text-errorRed' : 'text-nearBlack'}`}>
+                    {item.on_hand}
+                  </td>
+                  <td className="px-6 py-4 text-[14px] text-secondaryGray">{item.incoming_qty}</td>
+                  <td className="px-6 py-4 text-[14px] text-secondaryGray">{item.forecast_qty}</td>
                   <td className="px-6 py-4">
                     {item.status === 'in_stock' && (
                       <span className="inline-flex px-3 py-1 rounded-badge bg-green-100 text-green-800 text-[12px] font-semibold tracking-[-0.18px]">
-                        In Stock
+                        {humanizeStatus(item.status)}
                       </span>
                     )}
                     {item.status === 'low' && (
                       <span className="inline-flex px-3 py-1 rounded-badge bg-yellow-100 text-yellow-800 text-[12px] font-semibold tracking-[-0.18px]">
-                        Low Stock
+                        {humanizeStatus(item.status)}
+                      </span>
+                    )}
+                    {item.status === 'at_risk' && (
+                      <span className="inline-flex px-3 py-1 rounded-badge bg-orange-100 text-orange-800 text-[12px] font-semibold tracking-[-0.18px]">
+                        {humanizeStatus(item.status)}
                       </span>
                     )}
                     {item.status === 'out_of_stock' && (
                       <span className="inline-flex px-3 py-1 rounded-badge bg-errorRed/10 text-errorRed text-[12px] font-semibold tracking-[-0.18px]">
-                        Out of Stock
+                        {humanizeStatus(item.status)}
                       </span>
                     )}
                   </td>
@@ -91,9 +105,9 @@ export function Inventory() {
             </tbody>
           </table>
         </div>
-        {filtered.length === 0 && (
+        {(loading || filtered.length === 0) && (
           <div className="p-8 text-center text-secondaryGray font-medium">
-            No products found.
+            {loading ? 'Loading inventory...' : 'No inventory rows matched your search.'}
           </div>
         )}
       </div>
