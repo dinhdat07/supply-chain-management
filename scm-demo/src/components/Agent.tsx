@@ -578,41 +578,86 @@ export function Agent({
               </p>
             </div>
 
-            <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.65fr)_minmax(320px,0.85fr)]">
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.85fr)_minmax(300px,0.75fr)]">
               <div className="rounded-[24px] border border-borderGray bg-pureWhite p-6 shadow-card">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                  <div className="grid min-w-0 flex-1 grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-4">
-                    <div className="rounded-card border border-borderGray bg-lightSurface px-4 py-3">
+                <div className="rounded-[20px] border border-borderGray bg-lightSurface px-5 py-5">
+                  <div className="text-[12px] font-semibold uppercase tracking-[0.16em] text-secondaryGray">System Health</div>
+                  <div className="mt-2 text-[20px] font-bold text-nearBlack">Operational network snapshot</div>
+                  <p className="mt-1 text-[14px] text-secondaryGray">
+                    Review the latest service, recovery, risk, and latency signals before issuing the next command.
+                  </p>
+
+                  <div className="mt-5 grid min-w-0 flex-1 grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-4">
+                    <div className="rounded-card border border-borderGray bg-pureWhite px-4 py-4 shadow-sm">
                       <div className="text-[12px] uppercase tracking-wider text-secondaryGray leading-tight">Service level</div>
-                      <div className="mt-1 whitespace-nowrap text-[22px] font-bold leading-tight text-nearBlack">
+                      <div className="mt-2 whitespace-nowrap text-[26px] font-bold leading-none text-nearBlack">
                         {summary ? formatPercent(summary.kpis.service_level) : '--'}
                       </div>
                     </div>
-                    <div className="rounded-card border border-borderGray bg-lightSurface px-4 py-3">
+                    <div className="rounded-card border border-borderGray bg-pureWhite px-4 py-4 shadow-sm">
                       <div className="text-[12px] uppercase tracking-wider text-secondaryGray leading-tight">Recovery speed</div>
-                      <div className="mt-1 whitespace-nowrap text-[22px] font-bold leading-tight text-nearBlack">
+                      <div className="mt-2 whitespace-nowrap text-[26px] font-bold leading-none text-nearBlack">
                         {summary ? formatPercent(summary.kpis.recovery_speed) : '--'}
                       </div>
                     </div>
-                    <div className="rounded-card border border-borderGray bg-lightSurface px-4 py-3">
+                    <div className="rounded-card border border-borderGray bg-pureWhite px-4 py-4 shadow-sm">
                       <div className="text-[12px] uppercase tracking-wider text-secondaryGray leading-tight">Disruption risk</div>
-                      <div className="mt-1 whitespace-nowrap text-[22px] font-bold leading-tight text-nearBlack">
+                      <div className="mt-2 whitespace-nowrap text-[26px] font-bold leading-none text-nearBlack">
                         {summary ? formatPercent(summary.kpis.disruption_risk) : '--'}
                       </div>
                     </div>
-                    <div className="rounded-card border border-borderGray bg-lightSurface px-4 py-3">
+                    <div className="rounded-card border border-borderGray bg-pureWhite px-4 py-4 shadow-sm">
                       <div className="text-[12px] uppercase tracking-wider text-secondaryGray leading-tight">Decision latency</div>
-                      <div className="mt-1 whitespace-nowrap text-[22px] font-bold leading-tight text-nearBlack">
+                      <div className="mt-2 whitespace-nowrap text-[26px] font-bold leading-none text-nearBlack">
                         {summary ? `${summary.kpis.decision_latency_ms.toFixed(0)} ms` : '--'}
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex w-full flex-col gap-3 md:w-auto md:flex-row">
+                  <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-3">
+                    {workQueue.map((item) => (
+                      <div key={item.title} className="rounded-card border border-borderGray bg-pureWhite px-4 py-4">
+                        <div className="text-[12px] uppercase tracking-wider text-secondaryGray">{item.title}</div>
+                        <div className="mt-2 text-[18px] font-bold text-nearBlack">{item.value}</div>
+                        <p className="mt-2 text-[13px] text-secondaryGray">{item.detail}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-5 rounded-card border border-borderGray bg-pureWhite px-5 py-5">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Action package ready</div>
+                        <div className="mt-2 text-[20px] font-bold text-nearBlack">
+                          {selectedPlan ? humanizeStrategy(selectedPlan.strategy_label) : 'No recommendation generated yet'}
+                        </div>
+                        <p className="mt-2 text-[14px] text-secondaryGray">
+                          {trace?.selection_reason ?? selectedPlan?.planner_reasoning ?? 'Refresh the network and generate recommendations to prepare an action package.'}
+                        </p>
+                      </div>
+                      {selectedPlan ? (
+                        <div className={`rounded-full border px-3 py-2 text-[11px] font-semibold uppercase tracking-wider ${modeTone(selectedPlan.approval_status)}`}>
+                          {humanizeStatus(selectedPlan.approval_status)}
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-[24px] border border-borderGray bg-lightSurface p-5 shadow-card">
+                <div className="rounded-[18px] border border-borderGray bg-pureWhite px-4 py-4">
+                  <div className="text-[12px] font-semibold uppercase tracking-[0.16em] text-secondaryGray">Command Layer</div>
+                  <div className="mt-2 text-[18px] font-bold text-nearBlack">Next operator action</div>
+                  <p className="mt-1 text-[14px] text-secondaryGray">
+                    Review system health first, then refresh the network or ask the control tower for a new recommendation package.
+                  </p>
+
+                  <div className="mt-4 flex flex-col gap-3">
                     <button
                       onClick={() => void onRefresh()}
                       disabled={loading || actionLoading !== null}
-                      className="flex items-center justify-center gap-2 rounded-card border border-borderGray bg-pureWhite px-4 py-3 text-[14px] font-semibold text-nearBlack transition-all hover:bg-lightSurface disabled:cursor-not-allowed disabled:bg-lightSurface disabled:text-nearBlack/40"
+                      className="flex items-center justify-center gap-2 rounded-card border border-borderGray bg-lightSurface px-4 py-3 text-[14px] font-semibold text-nearBlack transition-all hover:bg-pureWhite disabled:cursor-not-allowed disabled:bg-lightSurface disabled:text-nearBlack/40"
                     >
                       <RefreshCcw size={16} className={refreshing ? 'animate-spin' : ''} />
                       {refreshing ? 'Refreshing...' : 'Refresh Network State'}
@@ -628,70 +673,41 @@ export function Agent({
                   </div>
                 </div>
 
-                <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-                  {workQueue.map((item) => (
-                    <div key={item.title} className="rounded-card border border-borderGray bg-lightSurface px-4 py-4">
-                      <div className="text-[12px] uppercase tracking-wider text-secondaryGray">{item.title}</div>
-                      <div className="mt-2 text-[18px] font-bold text-nearBlack">{item.value}</div>
-                      <p className="mt-2 text-[13px] text-secondaryGray">{item.detail}</p>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-6 rounded-card border border-borderGray bg-lightSurface px-5 py-5">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="mt-4 rounded-[18px] border border-borderGray bg-pureWhite px-4 py-4">
+                  <div className="flex items-center gap-3">
+                    <Eye className="h-5 w-5 text-rausch" />
                     <div>
-                      <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Action package ready</div>
-                      <div className="mt-2 text-[20px] font-bold text-nearBlack">
-                        {selectedPlan ? humanizeStrategy(selectedPlan.strategy_label) : 'No recommendation generated yet'}
-                      </div>
-                      <p className="mt-2 text-[14px] text-secondaryGray">
-                        {trace?.selection_reason ?? selectedPlan?.planner_reasoning ?? 'Refresh the network and generate recommendations to prepare an action package.'}
-                      </p>
+                      <h3 className="text-[18px] font-bold text-nearBlack">Exception Queue</h3>
+                      <p className="text-[13px] text-secondaryGray">Review the most important operational exceptions first.</p>
                     </div>
-                    {selectedPlan ? (
-                      <div className={`rounded-full border px-3 py-2 text-[11px] font-semibold uppercase tracking-wider ${modeTone(selectedPlan.approval_status)}`}>
-                        {humanizeStatus(selectedPlan.approval_status)}
-                      </div>
-                    ) : null}
                   </div>
-                </div>
-              </div>
 
-              <div className="rounded-[24px] border border-borderGray bg-pureWhite p-6 shadow-card">
-                <div className="flex items-center gap-3">
-                  <Eye className="h-5 w-5 text-rausch" />
-                  <div>
-                    <h3 className="text-[20px] font-bold text-nearBlack">Exception Queue</h3>
-                    <p className="text-[14px] text-secondaryGray">Review the most important operational exceptions first.</p>
-                  </div>
-                </div>
-
-                <div className="mt-5 space-y-3">
-                  {summary?.alerts.length ? (
-                    summary.alerts.map((alert) => (
-                      <div
-                        key={`${alert.source}-${alert.title}`}
-                        className={`rounded-card border px-4 py-4 ${
-                          severityTone(alert.level) === 'critical'
-                            ? 'border-errorRed/15 bg-errorRed/5'
-                            : 'border-borderGray bg-lightSurface'
-                        }`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <AlertCircle className={severityTone(alert.level) === 'critical' ? 'mt-0.5 text-errorRed' : 'mt-0.5 text-nearBlack'} size={18} />
-                          <div>
-                            <div className="text-[15px] font-semibold text-nearBlack">{alert.title}</div>
-                            <p className="mt-1 text-[13px] text-secondaryGray">{alert.message}</p>
+                  <div className="mt-4 space-y-3">
+                    {summary?.alerts.length ? (
+                      summary.alerts.map((alert) => (
+                        <div
+                          key={`${alert.source}-${alert.title}`}
+                          className={`rounded-card border px-4 py-4 ${
+                            severityTone(alert.level) === 'critical'
+                              ? 'border-errorRed/15 bg-errorRed/5'
+                              : 'border-borderGray bg-lightSurface'
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <AlertCircle className={severityTone(alert.level) === 'critical' ? 'mt-0.5 text-errorRed' : 'mt-0.5 text-nearBlack'} size={18} />
+                            <div>
+                              <div className="text-[15px] font-semibold text-nearBlack">{alert.title}</div>
+                              <p className="mt-1 text-[13px] text-secondaryGray">{alert.message}</p>
+                            </div>
                           </div>
                         </div>
+                      ))
+                    ) : (
+                      <div className="rounded-card border border-borderGray bg-lightSurface px-4 py-5 text-[14px] text-secondaryGray">
+                        No urgent exceptions are active.
                       </div>
-                    ))
-                  ) : (
-                    <div className="rounded-card border border-borderGray bg-lightSurface px-4 py-5 text-[14px] text-secondaryGray">
-                      No urgent exceptions are active.
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
