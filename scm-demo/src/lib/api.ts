@@ -115,3 +115,7 @@ export function submitApproval(decisionId: string, action: ApprovalAction) {
     body: JSON.stringify({ action }),
   });
 }
+
+export function resetSystem() {
+  return requestJson('/reset', { method: 'POST' });
+}

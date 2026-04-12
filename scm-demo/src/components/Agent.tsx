@@ -40,11 +40,13 @@ interface AgentProps {
   selectedRunState: ControlTowerStateView | null;
   selectedRunDecision: DecisionLogDetailView | null;
   selectedRunExecution: ExecutionRecordView | null;
+  scenario: ScenarioName;
   loading: boolean;
   refreshing: boolean;
   actionLoading: string | null;
   historyLoading: boolean;
   error: string | null;
+  onScenarioChange: (scenario: ScenarioName) => void;
   onRefresh: () => Promise<void>;
   onPreviewScenario: (scenario: ScenarioName) => Promise<void>;
   onGenerateRecommendations: () => Promise<void>;
@@ -114,11 +116,13 @@ export function Agent({
   selectedRunState,
   selectedRunDecision,
   selectedRunExecution,
+  scenario,
   loading,
   refreshing,
   actionLoading,
   historyLoading,
   error,
+  onScenarioChange,
   onRefresh,
   onPreviewScenario,
   onGenerateRecommendations,
@@ -126,21 +130,12 @@ export function Agent({
   onApprovalAction,
   onSelectRun,
 }: AgentProps) {
-  const [scenario, setScenario] = useState<ScenarioName>("supplier_delay");
   const [visibleStepCount, setVisibleStepCount] = useState(0);
   const [selectedStepIndex, setSelectedStepIndex] = useState(0);
   const [workspace, setWorkspace] = useState<WorkspaceView>("operations");
 
   const steps = trace?.steps ?? [];
   const displayedSteps = steps.slice(0, visibleStepCount);
-  const safeSelectedStepIndex = Math.min(
-    selectedStepIndex,
-    Math.max(displayedSteps.length - 1, 0),
-  );
-  const selectedStep =
-    displayedSteps[safeSelectedStepIndex] ??
-    displayedSteps[displayedSteps.length - 1] ??
-    null;
   const selectedPlan =
     approvalDetail?.plan ??
     pendingApproval?.plan ??
@@ -399,7 +394,7 @@ export function Agent({
           scenario={scenario}
           loading={loading}
           actionLoading={actionLoading}
-          onScenarioChange={setScenario}
+          onScenarioChange={onScenarioChange}
           onPreviewScenario={onPreviewScenario}
           onRunScenario={onRunScenario}
         />
@@ -414,8 +409,6 @@ export function Agent({
 
       {showApproval ? (
         <ApprovalQueue
-          summary={summary}
-          trace={trace}
           pendingApproval={pendingApproval}
           approvalDetail={approvalDetail}
           actionLoading={actionLoading}

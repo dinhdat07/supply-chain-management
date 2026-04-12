@@ -45,7 +45,7 @@ export function StageDetail({ selectedStep }: StageDetailProps) {
             <div>
               <div className="text-[12px] uppercase tracking-wider text-secondaryGray">What the agent noticed</div>
               <ul className="mt-3 space-y-2 text-[13px] text-secondaryGray">
-                {selectedStep.observations.map((item) => <li key={item}>• {item}</li>)}
+                {selectedStep.observations.map((item: string) => <li key={item}>• {item}</li>)}
               </ul>
             </div>
           ) : null}
@@ -54,7 +54,7 @@ export function StageDetail({ selectedStep }: StageDetailProps) {
             <div>
               <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Risks flagged</div>
               <ul className="mt-3 space-y-2 text-[13px] text-secondaryGray">
-                {selectedStep.risks.map((item) => <li key={item}>• {item}</li>)}
+                {selectedStep.risks.map((item: string) => <li key={item}>• {item}</li>)}
               </ul>
             </div>
           ) : null}
@@ -63,7 +63,7 @@ export function StageDetail({ selectedStep }: StageDetailProps) {
             <div>
               <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Downstream impact</div>
               <ul className="mt-3 space-y-2 text-[13px] text-secondaryGray">
-                {selectedStep.downstream_impacts.map((item) => <li key={item}>• {item}</li>)}
+                {selectedStep.downstream_impacts.map((item: string) => <li key={item}>• {item}</li>)}
               </ul>
             </div>
           ) : null}
@@ -72,7 +72,7 @@ export function StageDetail({ selectedStep }: StageDetailProps) {
             <div>
               <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Recommended actions</div>
               <ul className="mt-3 space-y-2 text-[13px] text-secondaryGray">
-                {selectedStep.recommended_action_ids.map((item) => <li key={item}>• {humanizeAction(item)}</li>)}
+                {selectedStep.recommended_action_ids.map((item: string) => <li key={item}>• {humanizeAction(item)}</li>)}
               </ul>
             </div>
           ) : null}
@@ -81,7 +81,7 @@ export function StageDetail({ selectedStep }: StageDetailProps) {
             <div>
               <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Operational tradeoffs</div>
               <ul className="mt-3 space-y-2 text-[13px] text-secondaryGray">
-                {selectedStep.tradeoffs.map((item) => <li key={item}>• {item}</li>)}
+                {selectedStep.tradeoffs.map((item: string) => <li key={item}>• {item}</li>)}
               </ul>
             </div>
           ) : null}

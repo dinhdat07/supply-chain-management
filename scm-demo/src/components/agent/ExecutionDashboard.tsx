@@ -50,23 +50,23 @@ interface DispatchResponse {
   compensation_hints: string[];
 }
 
-/** ExecutionRecordView from GET /execution or GET /execution/{id} */
-interface ExecutionRecord {
-  execution_id: string;
-  run_id: string;
-  decision_id?: string | null;
-  plan_id?: string | null;
-  status: string;
-  dispatch_mode: string;
-  dry_run: boolean;
-  target_system: string;
-  action_ids: string[];
-  receipts: Array<{ receipt_id: string; action_id: string; status: string; detail: string }>;
-  status_history: Array<{ status: string; timestamp: string; reason: string }>;
-  failure_reason?: string | null;
-  created_at: string;
-  updated_at: string;
-}
+// /** ExecutionRecordView from GET /execution or GET /execution/{id} */
+// interface ExecutionRecord {
+//   execution_id: string;
+//   run_id: string;
+//   decision_id?: string | null;
+//   plan_id?: string | null;
+//   status: string;
+//   dispatch_mode: string;
+//   dry_run: boolean;
+//   target_system: string;
+//   action_ids: string[];
+//   receipts: Array<{ receipt_id: string; action_id: string; status: string; detail: string }>;
+//   status_history: Array<{ status: string; timestamp: string; reason: string }>;
+//   failure_reason?: string | null;
+//   created_at: string;
+//   updated_at: string;
+// }
 
 // ── API helpers ─────────────────────────────────────────────────────────────
 
@@ -115,13 +115,13 @@ async function apiListExecutions(): Promise<ActionExecutionRecord[]> {
   return Array.isArray(data) ? data : (data.items ?? []);
 }
 
-/** GET /execution/{id} — single action record detail */
-async function apiGetExecution(id: string): Promise<ActionExecutionRecord> {
-  const res = await fetch(`${BASE}/execution/${id}`);
-  if (!res.ok) throw new Error(await res.text());
-  const data = await res.json() as { item: ActionExecutionRecord } | ActionExecutionRecord;
-  return ('item' in data && data.item) ? data.item : data as ActionExecutionRecord;
-}
+// /** GET /execution/{id} — single action record detail */
+// async function apiGetExecution(id: string): Promise<ActionExecutionRecord> {
+//   const res = await fetch(`${BASE}/execution/${id}`);
+//   if (!res.ok) throw new Error(await res.text());
+//   const data = await res.json() as { item: ActionExecutionRecord } | ActionExecutionRecord;
+//   return ('item' in data && data.item) ? data.item : data as ActionExecutionRecord;
+// }
 
 // ── Sub-components ──────────────────────────────────────────────────────────
 

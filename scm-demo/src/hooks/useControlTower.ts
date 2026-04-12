@@ -17,6 +17,7 @@ import {
   runDailyPlan,
   runScenario,
   submitApproval,
+  resetSystem,
 } from '../lib/api';
 import type {
   ApprovalAction,
@@ -223,6 +224,18 @@ export function useControlTower() {
     }
   }
 
+  async function handleResetSystem() {
+    setActionLoading('reset');
+    try {
+      await resetSystem();
+      await refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Failed to reset system.');
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
   async function handleSelectRun(runId: string) {
     setHistoryLoading(true);
     setError(null);
@@ -253,5 +266,6 @@ export function useControlTower() {
     runScenario: handleRunScenario,
     applyApproval: handleApproval,
     selectRun: handleSelectRun,
+    resetSystem: handleResetSystem,
   };
 }

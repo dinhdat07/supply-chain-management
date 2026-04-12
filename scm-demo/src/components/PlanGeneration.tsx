@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { TraceView } from '../lib/types';
-import { BrainCircuit, CheckCircle2, CircleDashed, Clock, ChevronRight, AlertCircle, FileText, BarChart3, Loader2 } from 'lucide-react';
+import { BrainCircuit, CheckCircle2, CircleDashed, Clock, AlertCircle, FileText, BarChart3, Loader2 } from 'lucide-react';
 
 interface PlanGenerationProps {
   trace?: TraceView | null;

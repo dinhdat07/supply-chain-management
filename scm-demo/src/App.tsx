@@ -5,10 +5,13 @@ import { Inventory } from './components/Inventory';
 import { Layout } from './components/Layout';
 import { Suppliers } from './components/Suppliers';
 import { PlanGeneration } from './components/PlanGeneration';
+import { GlobalScenarioWidget } from './components/GlobalScenarioWidget';
 import { useControlTower } from './hooks/useControlTower';
+import type { ScenarioName } from './lib/types';
 
 function App() {
   const [currentTab, setCurrentTab] = useState('plan-generation');
+  const [scenario, setScenario] = useState<ScenarioName>('supplier_delay');
   const {
     summary,
     inventory,
@@ -34,6 +37,7 @@ function App() {
     runScenario,
     applyApproval,
     selectRun,
+    resetSystem,
   } = useControlTower();
 
   const renderContent = () => {
@@ -67,11 +71,13 @@ function App() {
             selectedRunState={selectedRunState}
             selectedRunDecision={selectedRunDecision}
             selectedRunExecution={selectedRunExecution}
+            scenario={scenario}
             loading={loading}
             refreshing={refreshing}
             actionLoading={actionLoading}
             historyLoading={historyLoading}
             error={error}
+            onScenarioChange={setScenario}
             onRefresh={refresh}
             onPreviewScenario={previewScenario}
             onGenerateRecommendations={runDailyPlan}
@@ -88,6 +94,14 @@ function App() {
   return (
     <Layout currentTab={currentTab} setTab={setCurrentTab}>
       {renderContent()}
+      <GlobalScenarioWidget
+        scenario={scenario}
+        onScenarioChange={setScenario}
+        onRunScenario={runScenario}
+        onResetSystem={resetSystem}
+        loading={loading}
+        actionLoading={actionLoading}
+      />
     </Layout>
   );
 }
