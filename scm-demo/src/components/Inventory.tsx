@@ -15,11 +15,9 @@ export function Inventory({ items, loading, error }: InventoryProps) {
 
   const filtered = items.filter((item) =>
     item.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    humanizeEntityId(item.sku).toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (item.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
     item.preferred_supplier_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    humanizeEntityId(item.preferred_supplier_id).toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.warehouse_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    humanizeEntityId(item.warehouse_id).toLowerCase().includes(searchTerm.toLowerCase())
+    item.warehouse_id.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -27,7 +25,7 @@ export function Inventory({ items, loading, error }: InventoryProps) {
       <header className="flex justify-between items-end">
         <div>
           <h1 className="text-[28px] font-bold text-nearBlack tracking-[-0.18px] mb-2">Inventory</h1>
-          <p className="text-[16px] text-secondaryGray font-medium">Live digital-twin inventory state across SKUs and warehouses.</p>
+          <p className="text-[16px] text-secondaryGray font-medium">Monitor stock, incoming supply, and preferred sourcing across the network.</p>
         </div>
       </header>
 
@@ -68,7 +66,7 @@ export function Inventory({ items, loading, error }: InventoryProps) {
               {filtered.map((item) => (
                 <tr key={item.sku} className={`hover:bg-lightSurface/50 transition-colors ${item.status === 'low' ? 'bg-errorRed/5' : ''}`}>
                   <td className="px-6 py-4">
-                    <div className="font-semibold text-nearBlack text-[14px]">{humanizeEntityId(item.sku)}</div>
+                    <div className="font-semibold text-nearBlack text-[14px]">{item.name || humanizeEntityId(item.sku)}</div>
                     <div className="mt-1 text-[12px] text-secondaryGray">{item.sku}</div>
                   </td>
                   <td className="px-6 py-4 text-[14px] text-nearBlack font-medium">{entityReference(item.warehouse_id)}</td>

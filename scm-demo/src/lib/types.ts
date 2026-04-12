@@ -204,6 +204,7 @@ export interface ReflectionView {
 
 export interface InventoryRowView {
   sku: string;
+  name?: string;
   warehouse_id: string;
   on_hand: number;
   incoming_qty: number;

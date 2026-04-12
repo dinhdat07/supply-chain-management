@@ -58,6 +58,12 @@ interface ControlTowerData {
   selectedRunExecution: ExecutionRecordView | null;
 }
 
+function isNotFoundError(error: unknown) {
+  if (!(error instanceof Error)) return false;
+  const message = error.message.toLowerCase();
+  return message.includes('not found') || message.includes('404');
+}
+
 const INITIAL_DATA: ControlTowerData = {
   summary: null,
   inventory: [],
@@ -92,7 +98,12 @@ export function useControlTower() {
     ]);
     const run = runResponse.item;
     const [decisionResponse, executionResponse] = await Promise.all([
-      run.decision_id ? fetchDecisionDetail(run.decision_id) : Promise.resolve(null),
+      run.decision_id
+        ? fetchDecisionDetail(run.decision_id).catch((error: unknown) => {
+            if (isNotFoundError(error)) return null;
+            throw error;
+          })
+        : Promise.resolve(null),
       run.execution_id ? fetchExecution(run.execution_id) : Promise.resolve(null),
     ]);
     return {
