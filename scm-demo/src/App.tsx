@@ -4,10 +4,11 @@ import { Dashboard } from './components/Dashboard';
 import { Inventory } from './components/Inventory';
 import { Layout } from './components/Layout';
 import { Suppliers } from './components/Suppliers';
+import { PlanGeneration } from './components/PlanGeneration';
 import { useControlTower } from './hooks/useControlTower';
 
 function App() {
-  const [currentTab, setCurrentTab] = useState('agent');
+  const [currentTab, setCurrentTab] = useState('plan-generation');
   const {
     summary,
     inventory,
@@ -50,6 +51,8 @@ function App() {
         return <Inventory items={inventory} loading={loading} error={error} />;
       case 'suppliers':
         return <Suppliers items={suppliers} loading={loading} error={error} />;
+      case 'plan-generation':
+        return <PlanGeneration trace={trace} loading={loading} />;
       case 'agent':
         return (
           <Agent
