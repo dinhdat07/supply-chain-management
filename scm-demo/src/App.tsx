@@ -3,6 +3,7 @@ import { Agent } from './components/Agent';
 import { Dashboard } from './components/Dashboard';
 import { Inventory } from './components/Inventory';
 import { Layout } from './components/Layout';
+import { RunLedgerPage } from './components/RunLedgerPage';
 import { Suppliers } from './components/Suppliers';
 import { useControlTower } from './hooks/useControlTower';
 
@@ -10,6 +11,9 @@ function App() {
   const [currentTab, setCurrentTab] = useState('agent');
   const {
     summary,
+    events,
+    reflections,
+    serviceRuntime,
     inventory,
     suppliers,
     trace,
@@ -54,26 +58,37 @@ function App() {
         return (
           <Agent
             summary={summary}
+            events={events}
+            reflections={reflections}
+            serviceRuntime={serviceRuntime}
             trace={trace}
             pendingApproval={pendingApproval}
             approvalDetail={approvalDetail}
             scenarioPreview={scenarioPreview}
-            runHistory={runHistory}
-            selectedRun={selectedRun}
-            selectedRunTrace={selectedRunTrace}
-            selectedRunState={selectedRunState}
-            selectedRunDecision={selectedRunDecision}
-            selectedRunExecution={selectedRunExecution}
             loading={loading}
             refreshing={refreshing}
             actionLoading={actionLoading}
-            historyLoading={historyLoading}
             error={error}
             onRefresh={refresh}
             onPreviewScenario={previewScenario}
             onGenerateRecommendations={runDailyPlan}
             onRunScenario={runScenario}
             onApprovalAction={applyApproval}
+            onOpenRunLedger={() => setCurrentTab('ledger')}
+          />
+        );
+      case 'ledger':
+        return (
+          <RunLedgerPage
+            summary={summary}
+            runHistory={runHistory}
+            selectedRun={selectedRun}
+            selectedRunTrace={selectedRunTrace}
+            selectedRunState={selectedRunState}
+            selectedRunDecision={selectedRunDecision}
+            selectedRunExecution={selectedRunExecution}
+            historyLoading={historyLoading}
+            error={error}
             onSelectRun={selectRun}
           />
         );

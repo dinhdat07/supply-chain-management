@@ -1,11 +1,10 @@
 import { CheckCircle2, ShieldAlert } from 'lucide-react';
 import type { 
   ApprovalAction, 
+  CandidateEvaluationView,
   ApprovalDetailView, 
-  ControlTowerSummaryResponse, 
   EventView, 
   PendingApprovalView, 
-  TraceView 
 } from '../../lib/types';
 import { 
   describeActionTarget, 
@@ -17,22 +16,18 @@ import {
   humanizeStrategy, 
   severitySummary 
 } from '../../lib/presenters';
-import { CandidatePlanCard, eventSummary, kpiRow, modeTone } from './AgentShared';
+import { CandidatePlanCard, eventSummary, kpiRow } from './AgentShared';
 
 interface ApprovalQueueProps {
-  summary: ControlTowerSummaryResponse | null;
-  trace: TraceView | null;
   pendingApproval: PendingApprovalView | null;
   approvalDetail: ApprovalDetailView | null;
   actionLoading: string | null;
   currentEvent: EventView | null;
-  alternativePlans: any[];
+  alternativePlans: CandidateEvaluationView[];
   onApprovalAction: (action: ApprovalAction, decisionId: string) => Promise<void>;
 }
 
 export function ApprovalQueue({
-  summary,
-  trace,
   pendingApproval,
   approvalDetail,
   actionLoading,

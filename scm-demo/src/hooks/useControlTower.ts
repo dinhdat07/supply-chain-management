@@ -3,13 +3,17 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   fetchApproval,
   fetchDecisionDetail,
+  fetchEvents,
   fetchExecution,
+  fetchExecutionList,
   fetchInventory,
   fetchPendingApproval,
+  fetchReflections,
   fetchRun,
   fetchRuns,
   fetchRunState,
   fetchRunTrace,
+  fetchServiceRuntime,
   fetchSummary,
   fetchSuppliers,
   fetchTrace,
@@ -19,16 +23,20 @@ import {
   submitApproval,
 } from '../lib/api';
 import type {
+  ActionExecutionRecordView,
   ApprovalAction,
   ApprovalDetailView,
   ControlTowerStateView,
   ControlTowerSummaryResponse,
   DecisionLogDetailView,
+  EventView,
   ExecutionRecordView,
   InventoryRowView,
   PendingApprovalView,
+  ReflectionView,
   RunView,
   ScenarioName,
+  ServiceRuntimeView,
   SupplierRowView,
   TraceView,
   WhatIfResponse,
@@ -45,6 +53,10 @@ interface ControlTowerData {
   summary: ControlTowerSummaryResponse | null;
   inventory: InventoryRowView[];
   suppliers: SupplierRowView[];
+  events: EventView[];
+  reflections: ReflectionView[];
+  executionHistory: ActionExecutionRecordView[];
+  serviceRuntime: ServiceRuntimeView | null;
   trace: TraceView | null;
   pendingApproval: PendingApprovalView | null;
   approvalDetail: ApprovalDetailView | null;
@@ -68,6 +80,10 @@ const INITIAL_DATA: ControlTowerData = {
   summary: null,
   inventory: [],
   suppliers: [],
+  events: [],
+  reflections: [],
+  executionHistory: [],
+  serviceRuntime: null,
   trace: null,
   pendingApproval: null,
   approvalDetail: null,
@@ -117,13 +133,17 @@ export function useControlTower() {
   }, []);
 
   const loadAll = useCallback(async (preferredRunId?: string | null) => {
-    const [summary, inventory, suppliers, trace, pendingApproval, runs] = await Promise.all([
+    const [summary, inventory, suppliers, events, reflections, serviceRuntime, trace, pendingApproval, runs, executionHistory] = await Promise.all([
       fetchSummary(),
       fetchInventory(),
       fetchSuppliers(),
+      fetchEvents(),
+      fetchReflections(),
+      fetchServiceRuntime(),
       fetchTrace(),
       fetchPendingApproval(),
       fetchRuns(),
+      fetchExecutionList(),
     ]);
     const approvalDetail = pendingApproval.item
       ? await fetchApproval(pendingApproval.item.decision_id)
@@ -148,6 +168,10 @@ export function useControlTower() {
       summary,
       inventory: inventory.items,
       suppliers: suppliers.items,
+      events: events.items,
+      reflections: reflections.items,
+      executionHistory: executionHistory.items,
+      serviceRuntime: serviceRuntime.item,
       trace: trace.item,
       pendingApproval: pendingApproval.item ?? null,
       approvalDetail: approvalDetail?.item ?? null,

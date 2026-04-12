@@ -1,16 +1,23 @@
 import type {
+  ActionExecutionRecordView,
+  ActionExecutionDetailResponse,
   ApprovalAction,
   ApprovalCommandResultResponse,
   ApprovalDetailResponse,
   ControlTowerSummaryResponse,
   DecisionLogDetailResponse,
+  EventListResponse,
   ExecutionDetailResponse,
+  ExecutionListResponse,
   InventoryListResponse,
   PendingApprovalResponse,
+  PlanDispatchResponse,
+  ReflectionListResponse,
   RunDetailResponse,
   RunListResponse,
   RunStateResponse,
   ScenarioName,
+  ServiceRuntimeResponse,
   SupplierListResponse,
   TraceResponse,
   WhatIfResponse,
@@ -55,6 +62,10 @@ export function fetchSuppliers() {
   return requestJson<SupplierListResponse>('/suppliers');
 }
 
+export function fetchEvents(limit = 8) {
+  return requestJson<EventListResponse>(`/events?limit=${limit}`);
+}
+
 export function fetchTrace() {
   return requestJson<TraceResponse>('/trace/latest');
 }
@@ -79,8 +90,24 @@ export function fetchExecution(executionId: string) {
   return requestJson<ExecutionDetailResponse>(`/execution/${executionId}`);
 }
 
+export function fetchExecutionList(limit = 25) {
+  return requestJson<ExecutionListResponse>(`/execution?limit=${limit}`);
+}
+
+export function fetchActionExecution(executionId: string) {
+  return requestJson<ActionExecutionDetailResponse>(`/execution/${executionId}`);
+}
+
 export function fetchDecisionDetail(decisionId: string) {
   return requestJson<DecisionLogDetailResponse>(`/decision-logs/${decisionId}`);
+}
+
+export function fetchReflections() {
+  return requestJson<ReflectionListResponse>('/reflections');
+}
+
+export function fetchServiceRuntime() {
+  return requestJson<ServiceRuntimeResponse>('/service/runtime');
 }
 
 export function fetchPendingApproval() {
@@ -113,5 +140,25 @@ export function submitApproval(decisionId: string, action: ApprovalAction) {
   return requestJson<ApprovalCommandResultResponse>(`/approvals/${decisionId}`, {
     method: 'POST',
     body: JSON.stringify({ action }),
+  });
+}
+
+export function dispatchPlan(planId: string, mode: 'dry_run' | 'commit') {
+  return requestJson<PlanDispatchResponse>(`/execution/${planId}/dispatch`, {
+    method: 'POST',
+    body: JSON.stringify({ mode }),
+  });
+}
+
+export function updateExecutionProgress(executionId: string, percentage: number) {
+  return requestJson<ActionExecutionRecordView>(`/execution/${executionId}/progress`, {
+    method: 'POST',
+    body: JSON.stringify({ percentage }),
+  });
+}
+
+export function completeExecution(executionId: string) {
+  return requestJson<ActionExecutionRecordView>(`/execution/${executionId}/complete`, {
+    method: 'POST',
   });
 }
