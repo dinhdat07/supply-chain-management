@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { LayoutDashboard, Package, Users, BrainCircuit } from 'lucide-react';
+import { LayoutDashboard, Package, Users, BrainCircuit, ScrollText } from 'lucide-react';
 
 interface LayoutProps {
   children: ReactNode;
@@ -13,6 +13,7 @@ export function Layout({ children, currentTab, setTab }: LayoutProps) {
     { id: 'inventory', label: 'Inventory', icon: Package },
     { id: 'suppliers', label: 'Suppliers', icon: Users },
     { id: 'agent', label: 'Control Tower', icon: BrainCircuit, isHighlight: true },
+    { id: 'ledger', label: 'Run Ledger', icon: ScrollText },
   ];
 
   return (

@@ -22,6 +22,7 @@ import {
   severitySummary 
 } from '../../lib/presenters';
 import { causalTone, eventSummary, kpiRow } from './AgentShared';
+import { ReflectionMemoryPanel } from './ReflectionMemoryPanel';
 
 interface RunLedgerProps {
   runHistory: RunView[];
@@ -67,6 +68,9 @@ export function RunLedger({
   const selectedRunSummary = selectedRunState?.summary ?? null;
   const replaySteps = selectedRunTrace?.steps ?? [];
   const selectedRunExecutionStatus = selectedRunExecution?.status ?? selectedRun?.execution_summary?.status ?? null;
+  const selectedRunReflections = selectedRunState?.reflections.filter(
+    (item) => item.run_id === selectedRun?.run_id,
+  ) ?? [];
 
   return (
     <section className="space-y-5">
@@ -170,7 +174,7 @@ export function RunLedger({
 
               <div>
                 <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Causal chain</div>
-                <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-4">
+                <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-5">
                   <div className={`rounded-card border px-4 py-4 ${causalTone('event')}`}>
                     <div className="text-[12px] uppercase tracking-wider text-secondaryGray">1. Signal entered</div>
                     <div className="mt-2 text-[16px] font-bold text-nearBlack">
@@ -220,6 +224,17 @@ export function RunLedger({
                       {selectedRunExecution?.status_history[ selectedRunExecution.status_history.length - 1 ]?.reason
                         ?? selectedRun.execution_summary?.dispatch_mode
                         ?? 'Execution details were not recorded for this run.'}
+                    </p>
+                  </div>
+
+                  <div className="rounded-card border border-borderGray bg-lightSurface px-4 py-4">
+                    <div className="text-[12px] uppercase tracking-wider text-secondaryGray">5. Learning captured</div>
+                    <div className="mt-2 text-[16px] font-bold text-nearBlack">
+                      {selectedRunReflections.length ? 'Reflection recorded' : 'No reflection note'}
+                    </div>
+                    <p className="mt-2 text-[13px] text-secondaryGray">
+                      {selectedRunReflections[0]?.summary
+                        ?? 'This run did not result in a stored learning note.'}
                     </p>
                   </div>
                 </div>
@@ -365,6 +380,13 @@ export function RunLedger({
                   )}
                 </div>
               </div>
+
+              <ReflectionMemoryPanel
+                reflections={selectedRunReflections}
+                title="Learning record"
+                description="Reflection notes and follow-up checks linked specifically to the selected run."
+                emptyMessage="No reflection note was stored for this run."
+              />
             </div>
           ) : (
             <div className="rounded-card border border-borderGray bg-lightSurface px-5 py-6 text-[14px] text-secondaryGray">
