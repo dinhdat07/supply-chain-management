@@ -22,6 +22,13 @@ export function Inventory({ items, loading, error }: InventoryProps) {
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
+      <header className="flex justify-between items-end">
+        <div>
+          <h1 className="text-[28px] font-bold text-nearBlack tracking-[-0.18px] mb-2">Inventory</h1>
+          <p className="text-[16px] text-secondaryGray font-medium">Monitor stock, incoming supply, and preferred sourcing across the network.</p>
+        </div>
+      </header>
+
       {error ? (
         <div className="rounded-card border border-errorRed/20 bg-errorRed/5 px-5 py-4 text-[14px] text-errorRed">
           {error}
