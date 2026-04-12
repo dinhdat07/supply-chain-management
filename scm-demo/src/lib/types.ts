@@ -55,6 +55,16 @@ export interface CandidateEvaluationView {
   llm_used: boolean;
 }
 
+export interface HistoricalCase {
+  case_id: string;
+  event_type: string;
+  event_severity: number;
+  actions_taken: string[];
+  outcome_kpis: Record<string, number>;
+  reflection_notes: string;
+  similarity_score: number;
+}
+
 export interface PlanView {
   plan_id: string;
   decision_id?: string | null;
@@ -63,7 +73,12 @@ export interface PlanView {
   score: number;
   score_breakdown: Record<string, number>;
   feasible?: boolean;
-  violations?: Array<{ code: string; message: string; action_id?: string | null; severity: string }>;
+  violations: Array<{
+    code: string;
+    message: string;
+    action_id?: string | null;
+    severity: 'hard' | 'soft' | string;
+  }>;
   mode_rationale?: string;
   strategy_label?: string | null;
   generated_by?: string | null;
@@ -75,6 +90,12 @@ export interface PlanView {
   critic_summary?: string | null;
   trigger_event_ids: string[];
   actions: ActionView[];
+  metadata?: {
+    referenced_cases: HistoricalCase[];
+    memory_influence_score: number;
+    strategy_rationale: string;
+    strategic_prompt?: string | null;
+  };
 }
 
 export interface PendingApprovalView {
@@ -213,6 +234,9 @@ export interface ControlTowerSummaryResponse {
   active_events: EventView[];
   latest_plan?: PlanView | null;
   pending_approval?: PendingApprovalView | null;
+  inventory_items: number;
+  suppliers: number;
+  routes: number;
   decision_count: number;
   scenario_history_count: number;
 }
