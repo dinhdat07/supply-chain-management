@@ -2,10 +2,14 @@ import { useEffect, useState } from "react";
 import type {
   ApprovalAction,
   ApprovalDetailView,
+  ControlTowerStateView,
   ControlTowerSummaryResponse,
+  DecisionLogDetailView,
   EventView,
+  ExecutionRecordView,
   PendingApprovalView,
   ReflectionView,
+  RunView,
   ScenarioName,
   ServiceRuntimeView,
   TraceView,
@@ -138,6 +142,13 @@ export function Agent({
   const [visibleStepCount, setVisibleStepCount] = useState(0);
   const [selectedStepIndex, setSelectedStepIndex] = useState(0);
   const [workspace, setWorkspace] = useState<WorkspaceView>("operations");
+
+  void runHistory;
+  void selectedRun;
+  void selectedRunTrace;
+  void selectedRunState;
+  void selectedRunDecision;
+  void selectedRunExecution;
 
   const steps = trace?.steps ?? [];
   const displayedSteps = steps.slice(0, visibleStepCount);

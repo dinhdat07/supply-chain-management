@@ -5,7 +5,6 @@ import type {
   ApprovalDetailView,
   EventView,
   PendingApprovalView,
-  TraceView,
 } from "../../lib/types";
 import {
   describeActionTarget,
