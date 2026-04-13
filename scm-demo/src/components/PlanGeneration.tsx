@@ -1,10 +1,15 @@
 import { useState } from 'react';
-import type { TraceView } from '../lib/types';
+import type { TraceView, PendingApprovalView, ApprovalDetailView, ApprovalAction } from '../lib/types';
 import { BrainCircuit, CheckCircle2, CircleDashed, Clock, AlertCircle, FileText, BarChart3, Loader2 } from 'lucide-react';
+import { ApprovalQueue } from './agent/ApprovalQueue';
 
 interface PlanGenerationProps {
   trace?: TraceView | null;
   loading: boolean;
+  pendingApproval?: PendingApprovalView | null;
+  approvalDetail?: ApprovalDetailView | null;
+  actionLoading?: string | null;
+  onApprovalAction?: (action: ApprovalAction, decisionId: string) => Promise<void>;
 }
 
 const STEP_ICONS: Record<string, any> = {
@@ -19,7 +24,14 @@ const STEP_ICONS: Record<string, any> = {
   execution: Clock,
 };
 
-export function PlanGeneration({ trace, loading }: PlanGenerationProps) {
+export function PlanGeneration({ 
+  trace, 
+  loading,
+  pendingApproval,
+  approvalDetail,
+  actionLoading,
+  onApprovalAction
+}: PlanGenerationProps) {
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
 
   if (loading && (!trace || !trace.steps)) {
@@ -48,6 +60,12 @@ export function PlanGeneration({ trace, loading }: PlanGenerationProps) {
   const defaultStep = steps.find(s => s.status === 'running') || steps[steps.length - 1];
   const activeStep = selectedStepId ? steps.find(s => s.step_id === selectedStepId) || defaultStep : defaultStep;
 
+  const isApprovalStepActive = activeStep.node_type === 'gate' || activeStep.agent === 'approval';
+  const candidatePlans = trace.candidate_evaluations ?? [];
+  const alternativePlans = candidatePlans.filter(
+    (item) => item.strategy_label !== trace.selected_strategy,
+  );
+  
   return (
     <div className="flex h-full gap-8 h-[calc(100vh-8rem)]">
       {/* Left Sidebar: Progress Stepper */}
@@ -132,85 +150,98 @@ export function PlanGeneration({ trace, loading }: PlanGenerationProps) {
         </div>
 
         <div className="flex-1 overflow-y-auto p-8 bg-pureWhite" style={{ scrollbarWidth: 'thin' }}>
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-10">
-            
-            {/* Observations Panel */}
-            <div className="flex flex-col gap-5">
-              <h3 className="text-[14px] font-bold uppercase tracking-[0.32px] text-nearBlack">Observations & Telemetry</h3>
-              {activeStep.observations && activeStep.observations.length > 0 ? (
-                <div className="space-y-4">
-                  {activeStep.observations.map((obs, i) => (
-                    <div key={i} className="p-5 bg-pureWhite rounded-[16px] border border-borderGray flex items-start gap-4 shadow-sm hover:shadow-hover transition-all duration-200">
-                      <div className="w-2 h-2 bg-rausch rounded-full mt-2.5 flex-shrink-0 shadow-[0_0_8px_rgba(255,56,92,0.5)]" />
-                      <p className="text-[14px] text-focusedGray font-medium leading-relaxed">{obs}</p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-[14px] text-secondaryGray italic p-6 bg-lightSurface rounded-[16px] text-center border border-dashed border-borderGray">
-                  No direct observations recorded.
-                </div>
-              )}
-            </div>
-
-            {/* Metrics/Tradeoffs Panel */}
-            <div className="flex flex-col gap-8">
+          {(isApprovalStepActive && pendingApproval) ? (
+            <ApprovalQueue
+              pendingApproval={pendingApproval}
+              approvalDetail={approvalDetail ?? null}
+              actionLoading={actionLoading ?? null}
+              currentEvent={trace?.event ?? null}
+              alternativePlans={alternativePlans}
+              onApprovalAction={async (action, decisionId) => {
+                if (onApprovalAction) await onApprovalAction(action, decisionId);
+              }}
+            />
+          ) : (
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-10">
               
-              {/* Recommended Actions */}
-              <div>
-                <h3 className="text-[14px] font-bold uppercase tracking-[0.32px] text-nearBlack mb-5">Recommended Actions</h3>
-                {activeStep.recommended_action_ids && activeStep.recommended_action_ids.length > 0 ? (
-                  <div className="space-y-3">
-                    {activeStep.recommended_action_ids.map((act, i) => (
-                      <div key={i} className="flex items-center gap-3 p-4 bg-rausch/5 text-deepRausch font-semibold rounded-[16px] border border-rausch/10">
-                        <CheckCircle2 size={18} />
-                        <span className="text-[15px]">{act}</span>
+              {/* Observations Panel */}
+              <div className="flex flex-col gap-5">
+                <h3 className="text-[14px] font-bold uppercase tracking-[0.32px] text-nearBlack">Observations & Telemetry</h3>
+                {activeStep.observations && activeStep.observations.length > 0 ? (
+                  <div className="space-y-4">
+                    {activeStep.observations.map((obs, i) => (
+                      <div key={i} className="p-5 bg-pureWhite rounded-[16px] border border-borderGray flex items-start gap-4 shadow-sm hover:shadow-hover transition-all duration-200">
+                        <div className="w-2 h-2 bg-rausch rounded-full mt-2.5 flex-shrink-0 shadow-[0_0_8px_rgba(255,56,92,0.5)]" />
+                        <p className="text-[14px] text-focusedGray font-medium leading-relaxed">{obs}</p>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-[14px] text-secondaryGray p-5 bg-lightSurface rounded-[16px] border border-dashed border-borderGray text-center">
-                    None recommended by this agent.
+                  <div className="text-[14px] text-secondaryGray italic p-6 bg-lightSurface rounded-[16px] text-center border border-dashed border-borderGray">
+                    No direct observations recorded.
                   </div>
                 )}
               </div>
 
-              {/* Tradeoffs */}
-              <div>
-                <h3 className="text-[14px] font-bold uppercase tracking-[0.32px] text-nearBlack mb-5">Considered Tradeoffs</h3>
-                {activeStep.tradeoffs && activeStep.tradeoffs.length > 0 ? (
-                  <div className="flex flex-col gap-3">
-                    {activeStep.tradeoffs.map((tradeoff, i) => (
-                      <div key={i} className="flex items-center justify-between p-4 bg-pureWhite border border-borderGray rounded-[16px] shadow-sm">
-                        <span className="text-[14px] text-focusedGray font-medium">{tradeoff}</span>
-                        <span className="text-[12px] font-bold text-legalBlue bg-legalBlue/10 px-2 py-1 rounded-sm">Analyzed</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-[14px] text-secondaryGray italic p-5 bg-lightSurface rounded-[16px] border border-dashed border-borderGray text-center">
-                    No critical tradeoffs flagged.
-                  </p>
-                )}
-              </div>
-              
-              {/* Risks */}
-              {activeStep.risks && activeStep.risks.length > 0 && (
+              {/* Metrics/Tradeoffs Panel */}
+              <div className="flex flex-col gap-8">
+                
+                {/* Recommended Actions */}
                 <div>
-                  <h3 className="text-[14px] font-bold uppercase tracking-[0.32px] text-errorRed mb-5">Identified Risks</h3>
-                  <div className="space-y-3">
-                    {activeStep.risks.map((risk, i) => (
-                      <div key={i} className="flex items-start gap-3 p-4 bg-errorRed/5 border border-errorRed/10 rounded-[16px]">
-                        <AlertCircle size={18} className="text-errorRed mt-0.5 flex-shrink-0" />
-                        <p className="text-[14px] text-errorDark font-medium">{risk}</p>
-                      </div>
-                    ))}
-                  </div>
+                  <h3 className="text-[14px] font-bold uppercase tracking-[0.32px] text-nearBlack mb-5">Recommended Actions</h3>
+                  {activeStep.recommended_action_ids && activeStep.recommended_action_ids.length > 0 ? (
+                    <div className="space-y-3">
+                      {activeStep.recommended_action_ids.map((act, i) => (
+                        <div key={i} className="flex items-center gap-3 p-4 bg-rausch/5 text-deepRausch font-semibold rounded-[16px] border border-rausch/10">
+                          <CheckCircle2 size={18} />
+                          <span className="text-[15px]">{act}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-[14px] text-secondaryGray p-5 bg-lightSurface rounded-[16px] border border-dashed border-borderGray text-center">
+                      None recommended by this agent.
+                    </div>
+                  )}
                 </div>
-              )}
 
+                {/* Tradeoffs */}
+                <div>
+                  <h3 className="text-[14px] font-bold uppercase tracking-[0.32px] text-nearBlack mb-5">Considered Tradeoffs</h3>
+                  {activeStep.tradeoffs && activeStep.tradeoffs.length > 0 ? (
+                    <div className="flex flex-col gap-3">
+                      {activeStep.tradeoffs.map((tradeoff, i) => (
+                        <div key={i} className="flex items-center justify-between p-4 bg-pureWhite border border-borderGray rounded-[16px] shadow-sm">
+                          <span className="text-[14px] text-focusedGray font-medium">{tradeoff}</span>
+                          <span className="text-[12px] font-bold text-legalBlue bg-legalBlue/10 px-2 py-1 rounded-sm">Analyzed</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[14px] text-secondaryGray italic p-5 bg-lightSurface rounded-[16px] border border-dashed border-borderGray text-center">
+                      No critical tradeoffs flagged.
+                    </p>
+                  )}
+                </div>
+                
+                {/* Risks */}
+                {activeStep.risks && activeStep.risks.length > 0 && (
+                  <div>
+                    <h3 className="text-[14px] font-bold uppercase tracking-[0.32px] text-errorRed mb-5">Identified Risks</h3>
+                    <div className="space-y-3">
+                      {activeStep.risks.map((risk, i) => (
+                        <div key={i} className="flex items-start gap-3 p-4 bg-errorRed/5 border border-errorRed/10 rounded-[16px]">
+                          <AlertCircle size={18} className="text-errorRed mt-0.5 flex-shrink-0" />
+                          <p className="text-[14px] text-errorDark font-medium">{risk}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

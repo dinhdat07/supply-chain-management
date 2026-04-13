@@ -56,7 +56,16 @@ function App() {
       case 'suppliers':
         return <Suppliers items={suppliers} loading={loading} error={error} />;
       case 'plan-generation':
-        return <PlanGeneration trace={trace} loading={loading} />;
+        return (
+          <PlanGeneration 
+            trace={trace} 
+            loading={loading}
+            pendingApproval={pendingApproval}
+            approvalDetail={approvalDetail}
+            actionLoading={actionLoading}
+            onApprovalAction={applyApproval}
+          />
+        );
       case 'agent':
         return (
           <Agent
