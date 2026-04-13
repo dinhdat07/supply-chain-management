@@ -21,14 +21,14 @@ import type {
   SupplierListResponse,
   TraceResponse,
   WhatIfResponse,
-} from './types';
+} from "./types";
 
-const API_BASE = '/api/v1';
+const API_BASE = "/api/v1";
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       ...(init?.headers ?? {}),
     },
     ...init,
@@ -38,9 +38,10 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
     let message = `Request failed with status ${response.status}`;
     try {
       const payload = await response.json();
-      message = typeof payload.detail === 'string'
-        ? payload.detail
-        : payload.detail?.message ?? payload.message ?? message;
+      message =
+        typeof payload.detail === "string"
+          ? payload.detail
+          : (payload.detail?.message ?? payload.message ?? message);
     } catch {
       message = response.statusText || message;
     }
@@ -51,15 +52,15 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export function fetchSummary() {
-  return requestJson<ControlTowerSummaryResponse>('/control-tower/summary');
+  return requestJson<ControlTowerSummaryResponse>("/control-tower/summary");
 }
 
 export function fetchInventory() {
-  return requestJson<InventoryListResponse>('/inventory');
+  return requestJson<InventoryListResponse>("/inventory");
 }
 
 export function fetchSuppliers() {
-  return requestJson<SupplierListResponse>('/suppliers');
+  return requestJson<SupplierListResponse>("/suppliers");
 }
 
 export function fetchEvents(limit = 8) {
@@ -67,11 +68,11 @@ export function fetchEvents(limit = 8) {
 }
 
 export function fetchTrace() {
-  return requestJson<TraceResponse>('/trace/latest');
+  return requestJson<TraceResponse>("/trace/latest");
 }
 
 export function fetchRuns() {
-  return requestJson<RunListResponse>('/runs?limit=12');
+  return requestJson<RunListResponse>("/runs?limit=12");
 }
 
 export function fetchRun(runId: string) {
@@ -95,7 +96,9 @@ export function fetchExecutionList(limit = 25) {
 }
 
 export function fetchActionExecution(executionId: string) {
-  return requestJson<ActionExecutionDetailResponse>(`/execution/${executionId}`);
+  return requestJson<ActionExecutionDetailResponse>(
+    `/execution/${executionId}`,
+  );
 }
 
 export function fetchDecisionDetail(decisionId: string) {
@@ -103,15 +106,15 @@ export function fetchDecisionDetail(decisionId: string) {
 }
 
 export function fetchReflections() {
-  return requestJson<ReflectionListResponse>('/reflections');
+  return requestJson<ReflectionListResponse>("/reflections");
 }
 
 export function fetchServiceRuntime() {
-  return requestJson<ServiceRuntimeResponse>('/service/runtime');
+  return requestJson<ServiceRuntimeResponse>("/service/runtime");
 }
 
 export function fetchPendingApproval() {
-  return requestJson<PendingApprovalResponse>('/approvals/pending');
+  return requestJson<PendingApprovalResponse>("/approvals/pending");
 }
 
 export function fetchApproval(decisionId: string) {
@@ -119,46 +122,62 @@ export function fetchApproval(decisionId: string) {
 }
 
 export function runDailyPlan() {
-  return requestJson('/plan/daily', { method: 'POST' });
+  return requestJson("/plan/daily", { method: "POST" });
 }
 
 export function runScenario(scenarioName: ScenarioName) {
-  return requestJson('/scenarios/run', {
-    method: 'POST',
+  return requestJson("/scenarios/run", {
+    method: "POST",
     body: JSON.stringify({ scenario_name: scenarioName }),
   });
 }
 
 export function previewScenario(scenarioName: ScenarioName) {
-  return requestJson<WhatIfResponse>('/what-if', {
-    method: 'POST',
+  return requestJson<WhatIfResponse>("/what-if", {
+    method: "POST",
     body: JSON.stringify({ scenario_name: scenarioName }),
   });
 }
 
 export function submitApproval(decisionId: string, action: ApprovalAction) {
-  return requestJson<ApprovalCommandResultResponse>(`/approvals/${decisionId}`, {
-    method: 'POST',
-    body: JSON.stringify({ action }),
-  });
+  return requestJson<ApprovalCommandResultResponse>(
+    `/approvals/${decisionId}`,
+    {
+      method: "POST",
+      body: JSON.stringify({ action }),
+    },
+  );
 }
 
-export function dispatchPlan(planId: string, mode: 'dry_run' | 'commit') {
+export function resetSystem() {
+  return requestJson("/reset", { method: "POST" });
+}
+
+export function dispatchPlan(planId: string, mode: "dry_run" | "commit") {
   return requestJson<PlanDispatchResponse>(`/execution/${planId}/dispatch`, {
-    method: 'POST',
+    method: "POST",
     body: JSON.stringify({ mode }),
   });
 }
 
-export function updateExecutionProgress(executionId: string, percentage: number) {
-  return requestJson<ActionExecutionRecordView>(`/execution/${executionId}/progress`, {
-    method: 'POST',
-    body: JSON.stringify({ percentage }),
-  });
+export function updateExecutionProgress(
+  executionId: string,
+  percentage: number,
+) {
+  return requestJson<ActionExecutionRecordView>(
+    `/execution/${executionId}/progress`,
+    {
+      method: "POST",
+      body: JSON.stringify({ percentage }),
+    },
+  );
 }
 
 export function completeExecution(executionId: string) {
-  return requestJson<ActionExecutionRecordView>(`/execution/${executionId}/complete`, {
-    method: 'POST',
-  });
+  return requestJson<ActionExecutionRecordView>(
+    `/execution/${executionId}/complete`,
+    {
+      method: "POST",
+    },
+  );
 }

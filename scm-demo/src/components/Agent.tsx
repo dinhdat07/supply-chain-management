@@ -38,10 +38,18 @@ interface AgentProps {
   pendingApproval: PendingApprovalView | null;
   approvalDetail: ApprovalDetailView | null;
   scenarioPreview: WhatIfResponse | null;
+  runHistory: RunView[];
+  selectedRun: RunView | null;
+  selectedRunTrace: TraceView | null;
+  selectedRunState: ControlTowerStateView | null;
+  selectedRunDecision: DecisionLogDetailView | null;
+  selectedRunExecution: ExecutionRecordView | null;
+  scenario: ScenarioName;
   loading: boolean;
   refreshing: boolean;
   actionLoading: string | null;
   error: string | null;
+  onScenarioChange: (scenario: ScenarioName) => void;
   onRefresh: () => Promise<void>;
   onPreviewScenario: (scenario: ScenarioName) => Promise<void>;
   onGenerateRecommendations: () => Promise<void>;
@@ -108,10 +116,18 @@ export function Agent({
   pendingApproval,
   approvalDetail,
   scenarioPreview,
+  runHistory,
+  selectedRun,
+  selectedRunTrace,
+  selectedRunState,
+  selectedRunDecision,
+  selectedRunExecution,
+  scenario,
   loading,
   refreshing,
   actionLoading,
   error,
+  onScenarioChange,
   onRefresh,
   onPreviewScenario,
   onGenerateRecommendations,
@@ -119,7 +135,6 @@ export function Agent({
   onApprovalAction,
   onOpenRunLedger,
 }: AgentProps) {
-  const [scenario, setScenario] = useState<ScenarioName>("supplier_delay");
   const [visibleStepCount, setVisibleStepCount] = useState(0);
   const [selectedStepIndex, setSelectedStepIndex] = useState(0);
   const [workspace, setWorkspace] = useState<WorkspaceView>("operations");
@@ -298,7 +313,11 @@ export function Agent({
     {
       key: "execution" as WorkspaceView,
       label: "Execution pipeline",
-      detail: executionComplete ? "Last run complete" : selectedPlan ? "Ready to dispatch" : "No plan",
+      detail: executionComplete
+        ? "Last run complete"
+        : selectedPlan
+          ? "Ready to dispatch"
+          : "No plan",
     },
     {
       key: "scenario" as WorkspaceView,
@@ -352,13 +371,8 @@ export function Agent({
           />
 
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.08fr_0.92fr]">
-            <EventFeedPanel
-              events={events}
-              currentEvent={currentEvent}
-            />
-            <ServiceHealthPanel
-              serviceRuntime={serviceRuntime}
-            />
+            <EventFeedPanel events={events} currentEvent={currentEvent} />
+            <ServiceHealthPanel serviceRuntime={serviceRuntime} />
           </div>
 
           <ReflectionMemoryPanel
@@ -389,14 +403,15 @@ export function Agent({
                   Run history is available in the dedicated ledger page
                 </div>
                 <p className="mt-2 text-[14px] text-secondaryGray">
-                  Open the Run Ledger to inspect past runs, replay traces, compare before and after state, and review execution history for a specific decision.
+                  Open the Run Ledger to inspect past runs, replay traces,
+                  compare before and after state, and review execution history
+                  for a specific decision.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={onOpenRunLedger}
-                className="rounded-card bg-nearBlack px-5 py-3 text-[14px] font-bold text-pureWhite transition-all hover:bg-nearBlack/90"
-              >
+                className="rounded-card bg-nearBlack px-5 py-3 text-[14px] font-bold text-pureWhite transition-all hover:bg-nearBlack/90">
                 Open Run Ledger
               </button>
             </div>
@@ -411,7 +426,7 @@ export function Agent({
           scenario={scenario}
           loading={loading}
           actionLoading={actionLoading}
-          onScenarioChange={setScenario}
+          onScenarioChange={onScenarioChange}
           onPreviewScenario={onPreviewScenario}
           onRunScenario={onRunScenario}
         />
@@ -420,7 +435,12 @@ export function Agent({
       {showExecution ? (
         <ExecutionDashboard
           plan={selectedPlan}
-          decisionId={trace?.decision_id ?? approvalDetail?.decision_id ?? pendingApproval?.decision_id ?? null}
+          decisionId={
+            trace?.decision_id ??
+            approvalDetail?.decision_id ??
+            pendingApproval?.decision_id ??
+            null
+          }
           onOpenApproval={() => setWorkspace("approval")}
         />
       ) : null}

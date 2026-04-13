@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   fetchApproval,
@@ -21,7 +21,8 @@ import {
   runDailyPlan,
   runScenario,
   submitApproval,
-} from '../lib/api';
+  resetSystem,
+} from "../lib/api";
 import type {
   ActionExecutionRecordView,
   ApprovalAction,
@@ -40,13 +41,13 @@ import type {
   SupplierRowView,
   TraceView,
   WhatIfResponse,
-} from '../lib/types';
+} from "../lib/types";
 
 export const SCENARIO_OPTIONS: Array<{ label: string; value: ScenarioName }> = [
-  { label: 'Supplier Delay', value: 'supplier_delay' },
-  { label: 'Demand Spike', value: 'demand_spike' },
-  { label: 'Route Blockage', value: 'route_blockage' },
-  { label: 'Compound Disruption', value: 'compound_disruption' },
+  { label: "Supplier Delay", value: "supplier_delay" },
+  { label: "Demand Spike", value: "demand_spike" },
+  { label: "Route Blockage", value: "route_blockage" },
+  { label: "Compound Disruption", value: "compound_disruption" },
 ];
 
 interface ControlTowerData {
@@ -73,7 +74,7 @@ interface ControlTowerData {
 function isNotFoundError(error: unknown) {
   if (!(error instanceof Error)) return false;
   const message = error.message.toLowerCase();
-  return message.includes('not found') || message.includes('404');
+  return message.includes("not found") || message.includes("404");
 }
 
 const INITIAL_DATA: ControlTowerData = {
@@ -120,7 +121,9 @@ export function useControlTower() {
             throw error;
           })
         : Promise.resolve(null),
-      run.execution_id ? fetchExecution(run.execution_id) : Promise.resolve(null),
+      run.execution_id
+        ? fetchExecution(run.execution_id)
+        : Promise.resolve(null),
     ]);
     return {
       selectedRunId: run.run_id,
@@ -132,54 +135,70 @@ export function useControlTower() {
     };
   }, []);
 
-  const loadAll = useCallback(async (preferredRunId?: string | null) => {
-    const [summary, inventory, suppliers, events, reflections, serviceRuntime, trace, pendingApproval, runs, executionHistory] = await Promise.all([
-      fetchSummary(),
-      fetchInventory(),
-      fetchSuppliers(),
-      fetchEvents(),
-      fetchReflections(),
-      fetchServiceRuntime(),
-      fetchTrace(),
-      fetchPendingApproval(),
-      fetchRuns(),
-      fetchExecutionList(),
-    ]);
-    const approvalDetail = pendingApproval.item
-      ? await fetchApproval(pendingApproval.item.decision_id)
-      : null;
-    const availableRuns = runs.items;
-    const nextRunId = preferredRunId && availableRuns.some((item) => item.run_id === preferredRunId)
-      ? preferredRunId
-      : availableRuns[0]?.run_id ?? null;
-    const runArtifacts = nextRunId
-      ? await loadRunArtifacts(nextRunId)
-      : {
-          selectedRunId: null,
-          selectedRun: null,
-          selectedRunTrace: null,
-          selectedRunState: null,
-          selectedRunDecision: null,
-          selectedRunExecution: null,
-        };
-    selectedRunIdRef.current = runArtifacts.selectedRunId;
+  const loadAll = useCallback(
+    async (preferredRunId?: string | null) => {
+      const [
+        summary,
+        inventory,
+        suppliers,
+        events,
+        reflections,
+        serviceRuntime,
+        trace,
+        pendingApproval,
+        runs,
+        executionHistory,
+      ] = await Promise.all([
+        fetchSummary(),
+        fetchInventory(),
+        fetchSuppliers(),
+        fetchEvents(),
+        fetchReflections(),
+        fetchServiceRuntime(),
+        fetchTrace(),
+        fetchPendingApproval(),
+        fetchRuns(),
+        fetchExecutionList(),
+      ]);
+      const approvalDetail = pendingApproval.item
+        ? await fetchApproval(pendingApproval.item.decision_id)
+        : null;
+      const availableRuns = runs.items;
+      const nextRunId =
+        preferredRunId &&
+        availableRuns.some((item) => item.run_id === preferredRunId)
+          ? preferredRunId
+          : (availableRuns[0]?.run_id ?? null);
+      const runArtifacts = nextRunId
+        ? await loadRunArtifacts(nextRunId)
+        : {
+            selectedRunId: null,
+            selectedRun: null,
+            selectedRunTrace: null,
+            selectedRunState: null,
+            selectedRunDecision: null,
+            selectedRunExecution: null,
+          };
+      selectedRunIdRef.current = runArtifacts.selectedRunId;
 
-    setData({
-      summary,
-      inventory: inventory.items,
-      suppliers: suppliers.items,
-      events: events.items,
-      reflections: reflections.items,
-      executionHistory: executionHistory.items,
-      serviceRuntime: serviceRuntime.item,
-      trace: trace.item,
-      pendingApproval: pendingApproval.item ?? null,
-      approvalDetail: approvalDetail?.item ?? null,
-      scenarioPreview: null,
-      runHistory: availableRuns,
-      ...runArtifacts,
-    });
-  }, [loadRunArtifacts]);
+      setData({
+        summary,
+        inventory: inventory.items,
+        suppliers: suppliers.items,
+        events: events.items,
+        reflections: reflections.items,
+        executionHistory: executionHistory.items,
+        serviceRuntime: serviceRuntime.item,
+        trace: trace.item,
+        pendingApproval: pendingApproval.item ?? null,
+        approvalDetail: approvalDetail?.item ?? null,
+        scenarioPreview: null,
+        runHistory: availableRuns,
+        ...runArtifacts,
+      });
+    },
+    [loadRunArtifacts],
+  );
 
   const refresh = useCallback(async () => {
     setRefreshing(true);
@@ -187,7 +206,11 @@ export function useControlTower() {
     try {
       await loadAll(selectedRunIdRef.current);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Failed to refresh control tower state.');
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Failed to refresh control tower state.",
+      );
     } finally {
       setRefreshing(false);
       setLoading(false);
@@ -199,12 +222,14 @@ export function useControlTower() {
   }, [refresh]);
 
   async function handleRunDailyPlan() {
-    setActionLoading('daily_plan');
+    setActionLoading("daily_plan");
     try {
       await runDailyPlan();
       await refresh();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Failed to run daily plan.');
+      setError(
+        caught instanceof Error ? caught.message : "Failed to run daily plan.",
+      );
     } finally {
       setActionLoading(null);
     }
@@ -216,7 +241,9 @@ export function useControlTower() {
       await runScenario(scenario);
       await refresh();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Failed to run scenario.');
+      setError(
+        caught instanceof Error ? caught.message : "Failed to run scenario.",
+      );
     } finally {
       setActionLoading(null);
     }
@@ -229,7 +256,11 @@ export function useControlTower() {
       setData((current) => ({ ...current, scenarioPreview: preview }));
       setError(null);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Failed to preview scenario.');
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Failed to preview scenario.",
+      );
     } finally {
       setActionLoading(null);
     }
@@ -241,7 +272,25 @@ export function useControlTower() {
       await submitApproval(decisionId, action);
       await refresh();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Failed to apply approval action.');
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Failed to apply approval action.",
+      );
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleResetSystem() {
+    setActionLoading("reset");
+    try {
+      await resetSystem();
+      await refresh();
+    } catch (caught) {
+      setError(
+        caught instanceof Error ? caught.message : "Failed to reset system.",
+      );
     } finally {
       setActionLoading(null);
     }
@@ -258,7 +307,11 @@ export function useControlTower() {
         ...artifacts,
       }));
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Failed to load run details.');
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Failed to load run details.",
+      );
     } finally {
       setHistoryLoading(false);
     }
@@ -277,5 +330,6 @@ export function useControlTower() {
     runScenario: handleRunScenario,
     applyApproval: handleApproval,
     selectRun: handleSelectRun,
+    resetSystem: handleResetSystem,
   };
 }
