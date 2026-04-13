@@ -27,6 +27,21 @@ export interface EventView {
   payload: Record<string, unknown>;
 }
 
+export interface EventEnvelopeView {
+  event_id: string;
+  event_class: string;
+  event_type: string;
+  source: string;
+  occurred_at: string;
+  ingested_at: string;
+  correlation_id: string;
+  causation_id?: string | null;
+  idempotency_key: string;
+  severity: number;
+  entity_ids: string[];
+  payload: Record<string, unknown>;
+}
+
 export interface ActionView {
   action_id: string;
   action_type: string;
@@ -271,6 +286,7 @@ export interface ApprovalCommandResultResponse {
   message: string;
   latest_plan?: PlanView | null;
   pending_approval?: PendingApprovalView | null;
+  execution?: ExecutionRecordView | null;
   latest_trace?: TraceView | null;
   summary?: ControlTowerSummaryResponse | null;
 }
@@ -370,6 +386,43 @@ export interface ExecutionDetailResponse {
   item: ExecutionRecordView;
 }
 
+export interface ActionExecutionRecordView {
+  execution_id: string;
+  plan_id: string;
+  action_id: string;
+  action_type: string;
+  target_system: string;
+  payload: Record<string, unknown>;
+  idempotency_key: string;
+  status: string;
+  receipt: Record<string, unknown>;
+  failure_reason?: string | null;
+  is_retryable: boolean;
+  created_at: string;
+  dispatched_at?: string | null;
+  applied_at?: string | null;
+  estimated_completion_at?: string | null;
+  progress_percentage: number;
+}
+
+export interface ExecutionListResponse {
+  items: ActionExecutionRecordView[];
+  total: number;
+}
+
+export interface PlanDispatchResponse {
+  plan_id: string;
+  dispatch_mode: string;
+  plan_execution_status: string;
+  overall_progress: number;
+  records: ActionExecutionRecordView[];
+  compensation_hints: string[];
+}
+
+export interface ActionExecutionDetailResponse {
+  item: ActionExecutionRecordView;
+}
+
 export interface DecisionLogDetailView {
   decision_id: string;
   plan_id: string;
@@ -398,6 +451,11 @@ export interface DecisionLogDetailResponse {
   item: DecisionLogDetailView;
 }
 
+export interface EventListResponse {
+  items: EventView[];
+  total: number;
+}
+
 export interface WhatIfSummary {
   mode: string;
   active_events: string[];
@@ -413,6 +471,57 @@ export interface WhatIfResponse {
   scenario_name: string;
   summary: WhatIfSummary;
   latest_plan?: PlanView | null;
+}
+
+export interface ScenarioOutcomeView {
+  scenario_id: string;
+  runs: number;
+  latest_run_id?: string | null;
+  latest_plan_id?: string | null;
+  latest_approval_status?: string | null;
+  latest_reflection_status?: string | null;
+  latest_kpis: Record<string, unknown>;
+  history: Array<Record<string, unknown>>;
+}
+
+export interface ReflectionListResponse {
+  items: ReflectionView[];
+  scenarios: ScenarioOutcomeView[];
+  pattern_tag_counts: Record<string, number>;
+}
+
+export interface ServiceFlagsView {
+  llm_enabled: boolean;
+  llm_provider: string;
+  llm_model: string;
+  llm_timeout_s: number;
+  llm_retry_attempts: number;
+  planner_mode: string;
+  dispatch_mode: string;
+  degraded_mode: string;
+}
+
+export interface ServiceMetricsView {
+  total_runs: number;
+  completed_runs: number;
+  failed_runs: number;
+  total_events: number;
+  total_executions: number;
+  avg_run_duration_ms: number;
+  avg_agent_step_duration_ms: number;
+  llm_fallback_rate: number;
+  approval_rate: number;
+  execution_failure_rate: number;
+  latest_run_id?: string | null;
+}
+
+export interface ServiceRuntimeView {
+  flags: ServiceFlagsView;
+  metrics: ServiceMetricsView;
+}
+
+export interface ServiceRuntimeResponse {
+  item: ServiceRuntimeView;
 }
 
 export type ApprovalAction = 'approve' | 'reject' | 'safer_plan';

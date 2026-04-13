@@ -1,19 +1,23 @@
-import { useState } from 'react';
-import { Agent } from './components/Agent';
-import { Dashboard } from './components/Dashboard';
-import { Inventory } from './components/Inventory';
-import { Layout } from './components/Layout';
-import { Suppliers } from './components/Suppliers';
-import { PlanGeneration } from './components/PlanGeneration';
-import { GlobalScenarioWidget } from './components/GlobalScenarioWidget';
-import { useControlTower } from './hooks/useControlTower';
-import type { ScenarioName } from './lib/types';
+import { useState } from "react";
+import { Agent } from "./components/Agent";
+import { Dashboard } from "./components/Dashboard";
+import { Inventory } from "./components/Inventory";
+import { Layout } from "./components/Layout";
+import { RunLedgerPage } from "./components/RunLedgerPage";
+import { Suppliers } from "./components/Suppliers";
+import { PlanGeneration } from "./components/PlanGeneration";
+import { GlobalScenarioWidget } from "./components/GlobalScenarioWidget";
+import { useControlTower } from "./hooks/useControlTower";
+import type { ScenarioName } from "./lib/types";
 
 function App() {
-  const [currentTab, setCurrentTab] = useState('plan-generation');
-  const [scenario, setScenario] = useState<ScenarioName>('supplier_delay');
+  const [currentTab, setCurrentTab] = useState("plan-generation");
+  const [scenario, setScenario] = useState<ScenarioName>("supplier_delay");
   const {
     summary,
+    events,
+    reflections,
+    serviceRuntime,
     inventory,
     suppliers,
     trace,
@@ -42,7 +46,7 @@ function App() {
 
   const renderContent = () => {
     switch (currentTab) {
-      case 'dashboard':
+      case "dashboard":
         return (
           <Dashboard
             summary={summary}
@@ -51,14 +55,14 @@ function App() {
             error={error}
           />
         );
-      case 'inventory':
+      case "inventory":
         return <Inventory items={inventory} loading={loading} error={error} />;
-      case 'suppliers':
+      case "suppliers":
         return <Suppliers items={suppliers} loading={loading} error={error} />;
-      case 'plan-generation':
+      case "plan-generation":
         return (
-          <PlanGeneration 
-            trace={trace} 
+          <PlanGeneration
+            trace={trace}
             loading={loading}
             pendingApproval={pendingApproval}
             approvalDetail={approvalDetail}
@@ -66,10 +70,13 @@ function App() {
             onApprovalAction={applyApproval}
           />
         );
-      case 'agent':
+      case "agent":
         return (
           <Agent
             summary={summary}
+            events={events}
+            reflections={reflections}
+            serviceRuntime={serviceRuntime}
             trace={trace}
             pendingApproval={pendingApproval}
             approvalDetail={approvalDetail}
@@ -84,7 +91,6 @@ function App() {
             loading={loading}
             refreshing={refreshing}
             actionLoading={actionLoading}
-            historyLoading={historyLoading}
             error={error}
             onScenarioChange={setScenario}
             onRefresh={refresh}
@@ -92,6 +98,21 @@ function App() {
             onGenerateRecommendations={runDailyPlan}
             onRunScenario={runScenario}
             onApprovalAction={applyApproval}
+            onOpenRunLedger={() => setCurrentTab("ledger")}
+          />
+        );
+      case "ledger":
+        return (
+          <RunLedgerPage
+            summary={summary}
+            runHistory={runHistory}
+            selectedRun={selectedRun}
+            selectedRunTrace={selectedRunTrace}
+            selectedRunState={selectedRunState}
+            selectedRunDecision={selectedRunDecision}
+            selectedRunExecution={selectedRunExecution}
+            historyLoading={historyLoading}
+            error={error}
             onSelectRun={selectRun}
           />
         );

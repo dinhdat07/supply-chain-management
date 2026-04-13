@@ -1,13 +1,13 @@
 import * as Popover from "@radix-ui/react-popover";
 import { ChevronRight } from "lucide-react";
 import { StageDetail } from "./StageDetail";
-import type { TraceView } from "../../lib/types";
+import type { AgentStepView, TraceView } from "../../lib/types";
 import { humanizeLabel, humanizeNode } from "../../lib/presenters";
 import { agentVisual, tracePhase } from "./AgentShared";
 
 interface AgentTimelineProps {
   trace: TraceView | null;
-  displayedSteps: any[];
+  displayedSteps: AgentStepView[];
   selectedStepIndex: number;
   latestVisibleStepIndex: number;
   actionLoading: string | null;
@@ -174,7 +174,7 @@ export function AgentTimeline({
 
 // ── Sub-component: Card content (reused in both Left and Right slot) ──
 function StepCardContent({ step, index, visual, isActive }: {
-  step: any;
+  step: AgentStepView;
   index: number;
   visual: ReturnType<typeof agentVisual>;
   isActive: boolean;

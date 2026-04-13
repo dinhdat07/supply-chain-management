@@ -1,8 +1,9 @@
+import type { AgentStepView } from '../../lib/types';
 import { humanizeAction, humanizeLabel, humanizeNode, humanizeReasoningSource } from '../../lib/presenters';
 import { snapshotEntries, tracePhase } from './AgentShared';
 
 interface StageDetailProps {
-  selectedStep: any;
+  selectedStep: AgentStepView | null;
 }
 
 export function StageDetail({ selectedStep }: StageDetailProps) {

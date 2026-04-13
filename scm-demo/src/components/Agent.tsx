@@ -3,12 +3,11 @@ import type {
   ApprovalAction,
   ApprovalDetailView,
   ControlTowerSummaryResponse,
-  ControlTowerStateView,
-  DecisionLogDetailView,
-  ExecutionRecordView,
+  EventView,
   PendingApprovalView,
-  RunView,
+  ReflectionView,
   ScenarioName,
+  ServiceRuntimeView,
   TraceView,
   WhatIfResponse,
 } from "../lib/types";
@@ -21,15 +20,20 @@ import { WorkflowSection, type WorkspaceView } from "./agent/WorkflowSection";
 import { OperationsConsole } from "./agent/OperationsConsole";
 import { AgentTimeline } from "./agent/AgentTimeline";
 import { ExecutionDashboard } from "./agent/ExecutionDashboard";
-import { RunLedger } from "./agent/RunLedger";
 import { ScenarioLab } from "./agent/ScenarioLab";
 import { ApprovalQueue } from "./agent/ApprovalQueue";
+import { EventFeedPanel } from "./agent/EventFeedPanel";
+import { ReflectionMemoryPanel } from "./agent/ReflectionMemoryPanel";
+import { ServiceHealthPanel } from "./agent/ServiceHealthPanel";
 
 // Shared Utils
 import { eventSummary, type StageStatus } from "./agent/AgentShared";
 
 interface AgentProps {
   summary: ControlTowerSummaryResponse | null;
+  events: EventView[];
+  reflections: ReflectionView[];
+  serviceRuntime: ServiceRuntimeView | null;
   trace: TraceView | null;
   pendingApproval: PendingApprovalView | null;
   approvalDetail: ApprovalDetailView | null;
@@ -44,7 +48,6 @@ interface AgentProps {
   loading: boolean;
   refreshing: boolean;
   actionLoading: string | null;
-  historyLoading: boolean;
   error: string | null;
   onScenarioChange: (scenario: ScenarioName) => void;
   onRefresh: () => Promise<void>;
@@ -55,7 +58,7 @@ interface AgentProps {
     action: ApprovalAction,
     decisionId: string,
   ) => Promise<void>;
-  onSelectRun: (runId: string) => Promise<void>;
+  onOpenRunLedger: () => void;
 }
 
 function workingState(
@@ -106,6 +109,9 @@ function workingState(
 
 export function Agent({
   summary,
+  events,
+  reflections,
+  serviceRuntime,
   trace,
   pendingApproval,
   approvalDetail,
@@ -120,7 +126,6 @@ export function Agent({
   loading,
   refreshing,
   actionLoading,
-  historyLoading,
   error,
   onScenarioChange,
   onRefresh,
@@ -128,7 +133,7 @@ export function Agent({
   onGenerateRecommendations,
   onRunScenario,
   onApprovalAction,
-  onSelectRun,
+  onOpenRunLedger,
 }: AgentProps) {
   const [visibleStepCount, setVisibleStepCount] = useState(0);
   const [selectedStepIndex, setSelectedStepIndex] = useState(0);
@@ -308,7 +313,11 @@ export function Agent({
     {
       key: "execution" as WorkspaceView,
       label: "Execution pipeline",
-      detail: executionComplete ? "Last run complete" : selectedPlan ? "Ready to dispatch" : "No plan",
+      detail: executionComplete
+        ? "Last run complete"
+        : selectedPlan
+          ? "Ready to dispatch"
+          : "No plan",
     },
     {
       key: "scenario" as WorkspaceView,
@@ -361,6 +370,16 @@ export function Agent({
             onGenerateRecommendations={onGenerateRecommendations}
           />
 
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.08fr_0.92fr]">
+            <EventFeedPanel events={events} currentEvent={currentEvent} />
+            <ServiceHealthPanel serviceRuntime={serviceRuntime} />
+          </div>
+
+          <ReflectionMemoryPanel
+            reflections={reflections}
+            description="Recent reflection notes recorded after completed runs so operators can see what the control tower retained."
+          />
+
           <div className="mt-8">
             <AgentTimeline
               trace={trace}
@@ -374,16 +393,29 @@ export function Agent({
             />
           </div>
 
-          <RunLedger
-            runHistory={runHistory}
-            selectedRun={selectedRun}
-            selectedRunTrace={selectedRunTrace}
-            selectedRunState={selectedRunState}
-            selectedRunDecision={selectedRunDecision}
-            selectedRunExecution={selectedRunExecution}
-            historyLoading={historyLoading}
-            onSelectRun={onSelectRun}
-          />
+          <div className="rounded-[24px] border border-borderGray bg-pureWhite p-6 shadow-card">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <div className="text-[12px] uppercase tracking-wider text-secondaryGray">
+                  Historical replay
+                </div>
+                <div className="mt-1 text-[20px] font-bold text-nearBlack">
+                  Run history is available in the dedicated ledger page
+                </div>
+                <p className="mt-2 text-[14px] text-secondaryGray">
+                  Open the Run Ledger to inspect past runs, replay traces,
+                  compare before and after state, and review execution history
+                  for a specific decision.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={onOpenRunLedger}
+                className="rounded-card bg-nearBlack px-5 py-3 text-[14px] font-bold text-pureWhite transition-all hover:bg-nearBlack/90">
+                Open Run Ledger
+              </button>
+            </div>
+          </div>
         </>
       ) : null}
 
@@ -403,7 +435,13 @@ export function Agent({
       {showExecution ? (
         <ExecutionDashboard
           plan={selectedPlan}
-          decisionId={trace?.decision_id ?? approvalDetail?.decision_id ?? pendingApproval?.decision_id ?? null}
+          decisionId={
+            trace?.decision_id ??
+            approvalDetail?.decision_id ??
+            pendingApproval?.decision_id ??
+            null
+          }
+          onOpenApproval={() => setWorkspace("approval")}
         />
       ) : null}
 
