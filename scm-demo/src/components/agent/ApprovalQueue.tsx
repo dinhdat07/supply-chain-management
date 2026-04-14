@@ -28,6 +28,10 @@ interface ApprovalQueueProps {
     action: ApprovalAction,
     decisionId: string,
   ) => Promise<void>;
+  onSelectAlternative: (
+    decisionId: string,
+    strategyLabel: string,
+  ) => Promise<void>;
 }
 
 export function ApprovalQueue({
@@ -37,7 +41,11 @@ export function ApprovalQueue({
   currentEvent,
   alternativePlans,
   onApprovalAction,
+  onSelectAlternative,
 }: ApprovalQueueProps) {
+  const saferPlanAllowed = approvalDetail
+    ? approvalDetail.allowed_actions.includes("safer_plan")
+    : false;
   return (
     <section className="space-y-5">
       <div>
@@ -86,11 +94,13 @@ export function ApprovalQueue({
                       approvalDetail.decision_id,
                     )
                   }
-                  disabled={actionLoading !== null}
+                  disabled={actionLoading !== null || !saferPlanAllowed}
                   className="rounded-card bg-rausch px-4 py-3 text-[14px] font-bold text-pureWhite disabled:bg-rausch/30">
                   {actionLoading === "approval:safer_plan"
                     ? "Rebuilding..."
-                    : "Request safer alternative"}
+                    : saferPlanAllowed
+                      ? "Request safer alternative"
+                      : "Safer alternative requested"}
                 </button>
                 <button
                   onClick={() =>
@@ -240,11 +250,25 @@ export function ApprovalQueue({
                 </div>
                 <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-2">
                   {alternativePlans.slice(0, 2).map((item) => (
-                    <CandidatePlanCard
-                      key={item.strategy_label}
-                      evaluation={item}
-                      selected={false}
-                    />
+                    <div key={item.strategy_label} className="space-y-2">
+                      <CandidatePlanCard
+                        evaluation={item}
+                        selected={false}
+                      />
+                      <button
+                        onClick={() =>
+                          void onSelectAlternative(
+                            approvalDetail.decision_id,
+                            item.strategy_label,
+                          )
+                        }
+                        disabled={actionLoading !== null}
+                        className="w-full rounded-card border border-borderGray bg-pureWhite px-3 py-2 text-[13px] font-semibold text-nearBlack transition hover:bg-lightSurface disabled:bg-lightSurface disabled:text-secondaryGray">
+                        {actionLoading === `approval:select:${item.strategy_label}`
+                          ? "Switching..."
+                          : `Use ${humanizeStrategy(item.strategy_label)} instead`}
+                      </button>
+                    </div>
                   ))}
                 </div>
               </div>

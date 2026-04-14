@@ -8,6 +8,9 @@ const LABEL_MAP: Record<string, string> = {
   cost_first: 'Cost-first',
   balanced: 'Balanced',
   resilience_first: 'Resilience-first',
+  safer_alternative: 'Safer alternative',
+  operator_safer_request: 'Safer alternative',
+  operator_selected_alternative: 'Operator-selected alternative',
   auto_applied: 'Auto-applied',
   approved: 'Approved',
   rejected: 'Rejected',
@@ -28,7 +31,7 @@ const LABEL_MAP: Record<string, string> = {
   refresh_network: 'Refresh network state',
   daily_plan: 'Generate recommendations',
   ai_assisted_reasoning: 'AI-assisted reasoning',
-  deterministic_or_fallback: 'Deterministic or fallback reasoning',
+  deterministic_or_fallback: 'Deterministic reasoning',
   deterministic_execution_guard: 'Deterministic execution guard',
   deterministic_policy_guardrail: 'Deterministic policy guardrail',
   human_approval_action: 'Operator approval action',
@@ -160,6 +163,20 @@ export function describeActionTarget(actionType: string | null | undefined, targ
 
 export function humanizeReasoningSource(raw: string | null | undefined): string {
   return humanizeLabel(raw);
+}
+
+export function describeDecisionMethod(step: {
+  llm_used?: boolean;
+  llm_error?: string | null;
+  fallback_used?: boolean;
+  reasoning_source?: string | null;
+} | null | undefined): string {
+  if (!step) return 'Not available';
+  if (step.fallback_used || step.llm_error) return 'Fallback';
+  if (step.llm_used) return 'AI-assisted';
+  if (step.reasoning_source === 'deterministic_policy_guardrail') return 'Policy guardrail';
+  if (step.reasoning_source === 'deterministic_execution_guard') return 'Execution guard';
+  return 'Deterministic';
 }
 
 export function severitySummary(value: number | null | undefined): string {

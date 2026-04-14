@@ -129,6 +129,20 @@ export function CandidatePlanCard({
         <div>Recovery <span className="font-semibold text-nearBlack">{formatPercent(evaluation.projected_kpis.recovery_speed)}</span></div>
         <div>Cost <span className="font-semibold text-nearBlack">{formatCurrency(evaluation.projected_kpis.total_cost)}</span></div>
       </div>
+      <div className="mt-3 grid grid-cols-1 gap-2 text-[12px] text-secondaryGray sm:grid-cols-3">
+        <div className="rounded-card border border-borderGray bg-lightSurface px-3 py-3">
+          <div className="uppercase tracking-wider text-secondaryGray">Risk coverage</div>
+          <div className="mt-1 font-semibold text-nearBlack">{formatPercent(evaluation.coverage_fraction)}</div>
+        </div>
+        <div className="rounded-card border border-borderGray bg-lightSurface px-3 py-3">
+          <div className="uppercase tracking-wider text-secondaryGray">Critical SKUs covered</div>
+          <div className="mt-1 font-semibold text-nearBlack">{evaluation.critical_covered}</div>
+        </div>
+        <div className="rounded-card border border-borderGray bg-lightSurface px-3 py-3">
+          <div className="uppercase tracking-wider text-secondaryGray">Still at risk</div>
+          <div className="mt-1 font-semibold text-nearBlack">{evaluation.unresolved_critical}</div>
+        </div>
+      </div>
       <p className="mt-3 text-[13px] text-secondaryGray">{evaluation.rationale}</p>
     </div>
   );

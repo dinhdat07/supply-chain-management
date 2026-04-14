@@ -100,9 +100,11 @@ function ExecutionHistoryCard({
   const [collapsed, setCollapsed] = useState(true);
   const isDone = record.status === "completed" || record.status === "applied";
   const isFailed = record.status === "failed";
+  const isCommitRecord = record.dispatch_mode === "commit";
   const canAdvance = Boolean(
     onProgress &&
     onComplete &&
+    isCommitRecord &&
     record.status !== "completed" &&
     record.status !== "failed",
   );
@@ -192,6 +194,12 @@ function ExecutionHistoryCard({
                 {record.idempotency_key}
               </span>
             </div>
+            <div className="mt-2 flex justify-between gap-3">
+              <span className="text-secondaryGray">Dispatch mode</span>
+              <span className="font-bold text-nearBlack">
+                {record.dispatch_mode === "commit" ? "Commit" : "Dry run"}
+              </span>
+            </div>
             {record.estimated_completion_at ? (
               <div className="mt-2 flex justify-between gap-3">
                 <span className="text-secondaryGray">ETA</span>
@@ -247,6 +255,10 @@ function ExecutionHistoryCard({
                 className="rounded-xl bg-nearBlack px-4 py-2 text-[12px] font-bold text-pureWhite hover:bg-nearBlack/90">
                 Mark complete
               </button>
+            </div>
+          ) : !isCommitRecord ? (
+            <div className="rounded-xl border border-borderGray/40 bg-lightSurface/50 px-3 py-2 text-[11px] text-secondaryGray">
+              Dry run preview only. Use commit dispatch to enable progress updates.
             </div>
           ) : null}
         </div>
@@ -469,11 +481,16 @@ export function ExecutionDashboard({
           ) : (
             <div className="space-y-3">
               {executions.map((record) => (
-                <ExecutionHistoryCard
+                <div
                   key={record.execution_id}
-                  record={record}
-                  onRefresh={loadHistory}
-                />
+                  className={actionBusyId === record.execution_id ? "opacity-70" : ""}>
+                  <ExecutionHistoryCard
+                    record={record}
+                    onRefresh={loadHistory}
+                    onProgress={handleProgress}
+                    onComplete={handleComplete}
+                  />
+                </div>
               ))}
             </div>
           )}

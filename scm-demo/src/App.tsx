@@ -40,6 +40,7 @@ function App() {
     runDailyPlan,
     runScenario,
     applyApproval,
+    selectApprovalAlternative,
     selectRun,
     resetSystem,
   } = useControlTower();
@@ -68,6 +69,7 @@ function App() {
             approvalDetail={approvalDetail}
             actionLoading={actionLoading}
             onApprovalAction={applyApproval}
+            onSelectAlternative={selectApprovalAlternative}
           />
         );
       case "agent":
@@ -98,6 +100,7 @@ function App() {
             onGenerateRecommendations={runDailyPlan}
             onRunScenario={runScenario}
             onApprovalAction={applyApproval}
+            onSelectAlternative={selectApprovalAlternative}
             onOpenRunLedger={() => setCurrentTab("ledger")}
           />
         );
