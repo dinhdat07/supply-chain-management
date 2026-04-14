@@ -1,21 +1,40 @@
 import {
   AlertCircle,
+  ArrowRight,
   CheckCircle2,
   LoaderCircle,
   RefreshCcw,
   Sparkles,
 } from "lucide-react";
-import type { ControlTowerSummaryResponse, TraceView } from "../../lib/types";
+import type {
+  CandidateEvaluationView,
+  ControlTowerSummaryResponse,
+  KPIView,
+  TraceView,
+} from "../../lib/types";
 import {
+  formatCurrency,
+  formatMetricDelta,
   formatPercent,
+  humanizeLabel,
   humanizeStrategy,
   severityTone,
 } from "../../lib/presenters";
-import { modeTone } from "./AgentShared";
+import {
+  CandidatePlanCard,
+  ProjectionTimelineStrip,
+  ProjectedStateSummaryCard,
+  kpiRow,
+  modeTone,
+} from "./AgentShared";
 
 interface OperationsConsoleProps {
   summary: ControlTowerSummaryResponse | null;
   trace: TraceView | null;
+  baselineKpis: KPIView | null;
+  selectedEvaluation: CandidateEvaluationView | null;
+  candidatePlans: CandidateEvaluationView[];
+  selectionReason: string | null;
   workQueue: Array<{ title: string; value: string; detail: string }>;
   loading: boolean;
   refreshing: boolean;
@@ -27,6 +46,10 @@ interface OperationsConsoleProps {
 export function OperationsConsole({
   summary,
   trace,
+  baselineKpis,
+  selectedEvaluation,
+  candidatePlans,
+  selectionReason,
   workQueue,
   loading,
   refreshing,
@@ -35,6 +58,9 @@ export function OperationsConsole({
   onGenerateRecommendations,
 }: OperationsConsoleProps) {
   const selectedPlan = trace?.latest_plan ?? summary?.latest_plan ?? null;
+  const alternatives = candidatePlans.filter(
+    (item) => item.strategy_label !== selectedEvaluation?.strategy_label,
+  );
 
   return (
     <section className="space-y-5">
@@ -521,6 +547,169 @@ export function OperationsConsole({
               </div>
             </div>
           </div>
+
+          {selectedEvaluation ? (
+            <div className="border-t border-borderGray/40 bg-lightSurface/20 px-6 py-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="text-[11px] font-black uppercase tracking-widest text-secondaryGray">
+                    Forward Simulation
+                  </div>
+                  <h4 className="mt-1 text-[22px] font-black text-nearBlack">
+                    Projected Impact
+                  </h4>
+                  <p className="mt-1 text-[13px] text-secondaryGray">
+                    3-day rollout outlook showing what happens next and why this plan wins.
+                  </p>
+                </div>
+                <div className="rounded-full border border-borderGray bg-pureWhite px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-secondaryGray">
+                  {selectedEvaluation.simulation_horizon_days > 0
+                    ? `${selectedEvaluation.simulation_horizon_days}-day outlook`
+                    : "Static evaluation"}
+                </div>
+              </div>
+
+              <div className="mt-5 grid grid-cols-1 gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+                <div className="space-y-5">
+                  <div className="rounded-[16px] border border-rausch/15 bg-rausch/5 p-5">
+                    <div className="text-[11px] font-black uppercase tracking-widest text-rausch">
+                      Why This Plan Won
+                    </div>
+                    <p className="mt-2 text-[14px] leading-relaxed text-nearBlack">
+                      {selectionReason ?? trace?.selection_reason ?? selectedPlan.planner_reasoning}
+                    </p>
+                    {selectedEvaluation.projection_summary ? (
+                      <p className="mt-3 text-[13px] leading-relaxed text-secondaryGray">
+                        {selectedEvaluation.projection_summary}
+                      </p>
+                    ) : null}
+                  </div>
+
+                  {baselineKpis ? (
+                    <div className="space-y-3">
+                      <div className="text-[11px] font-black uppercase tracking-widest text-secondaryGray">
+                        Before vs Projected After
+                      </div>
+                      {kpiRow(
+                        "Service level",
+                        formatPercent(baselineKpis.service_level),
+                        formatPercent(selectedEvaluation.projected_kpis.service_level),
+                        formatMetricDelta(
+                          baselineKpis.service_level,
+                          selectedEvaluation.projected_kpis.service_level,
+                          "percent",
+                        ),
+                      )}
+                      {kpiRow(
+                        "Disruption risk",
+                        formatPercent(baselineKpis.disruption_risk),
+                        formatPercent(selectedEvaluation.projected_kpis.disruption_risk),
+                        formatMetricDelta(
+                          baselineKpis.disruption_risk,
+                          selectedEvaluation.projected_kpis.disruption_risk,
+                          "percent",
+                        ),
+                      )}
+                      {kpiRow(
+                        "Recovery speed",
+                        formatPercent(baselineKpis.recovery_speed),
+                        formatPercent(selectedEvaluation.projected_kpis.recovery_speed),
+                        formatMetricDelta(
+                          baselineKpis.recovery_speed,
+                          selectedEvaluation.projected_kpis.recovery_speed,
+                          "percent",
+                        ),
+                      )}
+                      {kpiRow(
+                        "Total cost",
+                        formatCurrency(baselineKpis.total_cost),
+                        formatCurrency(selectedEvaluation.projected_kpis.total_cost),
+                        formatMetricDelta(
+                          baselineKpis.total_cost,
+                          selectedEvaluation.projected_kpis.total_cost,
+                          "currency",
+                        ),
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="space-y-5">
+                  <ProjectionTimelineStrip
+                    steps={selectedEvaluation.projection_steps}
+                    title="Projected Timeline"
+                  />
+                  {selectedEvaluation.projected_state_summary ? (
+                    <ProjectedStateSummaryCard
+                      summary={selectedEvaluation.projected_state_summary}
+                    />
+                  ) : null}
+                  {selectedEvaluation.worst_case_kpis ? (
+                    <div className="rounded-[16px] border border-borderGray bg-pureWhite p-4">
+                      <div className="text-[11px] font-black uppercase tracking-widest text-secondaryGray">
+                        Simulation Watchouts
+                      </div>
+                      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3 text-[13px] text-secondaryGray">
+                        <div>
+                          <div className="text-[10px] uppercase tracking-widest text-secondaryGray">Worst service</div>
+                          <div className="mt-1 font-bold text-nearBlack">
+                            {formatPercent(selectedEvaluation.worst_case_kpis.service_level)}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] uppercase tracking-widest text-secondaryGray">Peak risk</div>
+                          <div className="mt-1 font-bold text-nearBlack">
+                            {formatPercent(selectedEvaluation.worst_case_kpis.disruption_risk)}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] uppercase tracking-widest text-secondaryGray">Dominant constraint</div>
+                          <div className="mt-1 font-bold text-nearBlack">
+                            {humanizeLabel(
+                              selectedEvaluation.projected_state_summary?.dominant_constraint ?? "not_available",
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+
+              {candidatePlans.length > 1 ? (
+                <div className="mt-6">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <div className="text-[11px] font-black uppercase tracking-widest text-secondaryGray">
+                        Candidate Comparison
+                      </div>
+                      <p className="mt-1 text-[13px] text-secondaryGray">
+                        Forward-simulation outcomes for the selected plan versus the alternatives.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-secondaryGray">
+                      Selected
+                      <ArrowRight size={14} />
+                      Alternatives
+                    </div>
+                  </div>
+                  <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-3">
+                    <CandidatePlanCard
+                      evaluation={selectedEvaluation}
+                      selected
+                    />
+                    {alternatives.slice(0, 2).map((item) => (
+                      <CandidatePlanCard
+                        key={item.strategy_label}
+                        evaluation={item}
+                        selected={false}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       ) : (
         <div className="rounded-[20px] border border-borderGray bg-pureWhite p-20 text-center shadow-card">

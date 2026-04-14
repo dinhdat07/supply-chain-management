@@ -164,6 +164,10 @@ export function Agent({
     summary?.latest_plan ??
     null;
   const candidatePlans = trace?.candidate_evaluations ?? [];
+  const selectedEvaluation =
+    candidatePlans.find((item) => item.strategy_label === trace?.selected_strategy) ??
+    candidatePlans.find((item) => item.strategy_label === selectedPlan?.strategy_label) ??
+    null;
   const alternativePlans = candidatePlans.filter(
     (item) => item.strategy_label !== trace?.selected_strategy,
   );
@@ -378,6 +382,10 @@ export function Agent({
           <OperationsConsole
             summary={summary}
             trace={trace}
+            baselineKpis={approvalDetail?.before_kpis ?? pendingApproval?.before_kpis ?? summary?.kpis ?? null}
+            selectedEvaluation={selectedEvaluation}
+            candidatePlans={candidatePlans}
+            selectionReason={trace?.selection_reason ?? approvalDetail?.selection_reason ?? pendingApproval?.selection_reason ?? null}
             workQueue={workQueue}
             loading={loading}
             refreshing={refreshing}
@@ -467,6 +475,7 @@ export function Agent({
           approvalDetail={approvalDetail}
           actionLoading={actionLoading}
           currentEvent={currentEvent}
+          selectedEvaluation={selectedEvaluation}
           alternativePlans={alternativePlans}
           onApprovalAction={onApprovalAction}
           onSelectAlternative={onSelectAlternative}

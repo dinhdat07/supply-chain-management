@@ -16,13 +16,20 @@ import {
   humanizeStrategy,
   severitySummary,
 } from "../../lib/presenters";
-import { CandidatePlanCard, eventSummary, kpiRow } from "./AgentShared";
+import {
+  CandidatePlanCard,
+  ProjectionTimelineStrip,
+  ProjectedStateSummaryCard,
+  eventSummary,
+  kpiRow,
+} from "./AgentShared";
 
 interface ApprovalQueueProps {
   pendingApproval: PendingApprovalView | null;
   approvalDetail: ApprovalDetailView | null;
   actionLoading: string | null;
   currentEvent: EventView | null;
+  selectedEvaluation: CandidateEvaluationView | null;
   alternativePlans: CandidateEvaluationView[];
   onApprovalAction: (
     action: ApprovalAction,
@@ -39,6 +46,7 @@ export function ApprovalQueue({
   approvalDetail,
   actionLoading,
   currentEvent,
+  selectedEvaluation,
   alternativePlans,
   onApprovalAction,
   onSelectAlternative,
@@ -128,6 +136,11 @@ export function ApprovalQueue({
                     {approvalDetail.selection_reason ||
                       approvalDetail.plan.planner_reasoning}
                   </p>
+                  {selectedEvaluation?.projection_summary ? (
+                    <p className="mt-2 text-[13px] text-secondaryGray">
+                      {selectedEvaluation.projection_summary}
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="rounded-card border border-borderGray bg-pureWhite px-5 py-5">
@@ -232,6 +245,24 @@ export function ApprovalQueue({
                   </div>
                 </div>
 
+                {selectedEvaluation ? (
+                  <div className="space-y-4">
+                    <div>
+                      <div className="text-[12px] uppercase tracking-wider text-secondaryGray">
+                        Future path
+                      </div>
+                      <ProjectionTimelineStrip
+                        steps={selectedEvaluation.projection_steps}
+                      />
+                    </div>
+                    {selectedEvaluation.projected_state_summary ? (
+                      <ProjectedStateSummaryCard
+                        summary={selectedEvaluation.projected_state_summary}
+                      />
+                    ) : null}
+                  </div>
+                ) : null}
+
                 <div className="rounded-card border border-amber-200 bg-amber-50 px-4 py-4">
                   <div className="text-[12px] uppercase tracking-wider text-amber-800">
                     Risk explanation
@@ -239,6 +270,11 @@ export function ApprovalQueue({
                   <p className="mt-2 text-[14px] text-amber-900">
                     {approvalDetail.approval_reason}
                   </p>
+                  {selectedEvaluation?.projection_summary ? (
+                    <p className="mt-2 text-[13px] text-amber-900">
+                      {selectedEvaluation.projection_summary}
+                    </p>
+                  ) : null}
                 </div>
               </div>
             </div>

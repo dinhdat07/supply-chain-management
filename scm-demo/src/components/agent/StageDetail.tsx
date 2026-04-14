@@ -7,6 +7,13 @@ interface StageDetailProps {
 }
 
 export function StageDetail({ selectedStep }: StageDetailProps) {
+  const projectionSteps = Array.isArray(selectedStep?.output_snapshot?.projection_steps)
+    ? (selectedStep?.output_snapshot?.projection_steps as Array<Record<string, unknown>>)
+    : [];
+  const projectionSummary =
+    typeof selectedStep?.output_snapshot?.projection_summary === 'string'
+      ? (selectedStep.output_snapshot.projection_summary as string)
+      : '';
   return (
     <div className="rounded-[24px] border border-borderGray bg-pureWhite p-6 shadow-card">
       <h3 className="text-[20px] font-bold text-nearBlack">Stage Detail</h3>
@@ -96,6 +103,40 @@ export function StageDetail({ selectedStep }: StageDetailProps) {
               <ul className="mt-3 space-y-2 text-[13px] text-secondaryGray">
                 {selectedStep.tradeoffs.map((item: string) => <li key={item}>• {item}</li>)}
               </ul>
+            </div>
+          ) : null}
+
+          {projectionSteps.length ? (
+            <div>
+              <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Projected timeline</div>
+              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                {projectionSteps.map((step) => (
+                  <div key={String(step.label)} className="rounded-card border border-borderGray bg-lightSurface px-4 py-3 text-[13px] text-secondaryGray">
+                    <div className="font-semibold text-nearBlack">{humanizeLabel(String(step.label ?? ''))}</div>
+                    <div className="mt-2 space-y-1">
+                      {'service_level' in step ? (
+                        <div>Service {String(step.service_level)}</div>
+                      ) : null}
+                      {'disruption_risk' in step ? (
+                        <div>Risk {String(step.disruption_risk)}</div>
+                      ) : null}
+                      {'inventory_at_risk' in step ? (
+                        <div>At risk {String(step.inventory_at_risk)}</div>
+                      ) : null}
+                    </div>
+                    {'summary' in step ? (
+                      <p className="mt-2 text-[12px]">{String(step.summary)}</p>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {projectionSummary ? (
+            <div className="rounded-card border border-borderGray bg-lightSurface px-4 py-3 text-[13px] text-secondaryGray">
+              <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Projection summary</div>
+              <p className="mt-2">{projectionSummary}</p>
             </div>
           ) : null}
 
