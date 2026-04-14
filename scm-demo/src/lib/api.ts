@@ -1,6 +1,5 @@
 import type {
   ActionExecutionRecordView,
-  ActionExecutionDetailResponse,
   ApprovalAction,
   ApprovalCommandResultResponse,
   ApprovalDetailResponse,
@@ -95,12 +94,6 @@ export function fetchExecutionList(limit = 25) {
   return requestJson<ExecutionListResponse>(`/execution?limit=${limit}`);
 }
 
-export function fetchActionExecution(executionId: string) {
-  return requestJson<ActionExecutionDetailResponse>(
-    `/execution/${executionId}`,
-  );
-}
-
 export function fetchDecisionDetail(decisionId: string) {
   return requestJson<DecisionLogDetailResponse>(`/decision-logs/${decisionId}`);
 }
@@ -145,6 +138,19 @@ export function submitApproval(decisionId: string, action: ApprovalAction) {
     {
       method: "POST",
       body: JSON.stringify({ action }),
+    },
+  );
+}
+
+export function selectApprovalAlternative(
+  decisionId: string,
+  strategyLabel: string,
+) {
+  return requestJson<ApprovalCommandResultResponse>(
+    `/approvals/${decisionId}/select-alternative`,
+    {
+      method: "POST",
+      body: JSON.stringify({ strategy_label: strategyLabel }),
     },
   );
 }

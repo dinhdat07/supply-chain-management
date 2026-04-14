@@ -2,7 +2,7 @@ import * as Popover from "@radix-ui/react-popover";
 import { ChevronRight } from "lucide-react";
 import { StageDetail } from "./StageDetail";
 import type { AgentStepView, TraceView } from "../../lib/types";
-import { humanizeLabel, humanizeNode } from "../../lib/presenters";
+import { describeDecisionMethod, humanizeLabel, humanizeNode } from "../../lib/presenters";
 import { agentVisual, tracePhase } from "./AgentShared";
 
 interface AgentTimelineProps {
@@ -188,9 +188,15 @@ function StepCardContent({ step, index, visual, isActive }: {
         <span className="rounded border border-borderGray px-1.5 py-0.5 text-[9px] font-bold uppercase text-secondaryGray">
           {tracePhase(step.agent)}
         </span>
-        {step.llm_used && (
-          <span className="rounded bg-rausch/10 px-1.5 py-0.5 text-[9px] font-bold uppercase text-rausch">AI</span>
-        )}
+        <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase ${
+          step.fallback_used || step.llm_error
+            ? 'bg-amber-100 text-amber-700'
+            : step.llm_used
+              ? 'bg-rausch/10 text-rausch'
+              : 'bg-lightSurface text-focusedGray'
+        }`}>
+          {describeDecisionMethod(step)}
+        </span>
         {isActive && (
           <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-amber-700">ACTIVE</span>
         )}

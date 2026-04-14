@@ -325,11 +325,27 @@ export function RunLedger({
                             <span className="rounded-full bg-pureWhite px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-secondaryGray">
                               {humanizeNode(step.agent)}
                             </span>
-                            {step.fallback_used ? (
-                              <span className="rounded-full bg-amber-100 px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-amber-700">
-                                Fallback
-                              </span>
-                            ) : null}
+                            {(() => {
+                              if (step.fallback_used) {
+                                return (
+                                  <span className="rounded-full bg-amber-100 px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-amber-700">
+                                    Fallback
+                                  </span>
+                                );
+                              }
+                              if (step.llm_used) {
+                                return (
+                                  <span className="rounded-full bg-rausch/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-rausch">
+                                    AI-assisted
+                                  </span>
+                                );
+                              }
+                              return (
+                                <span className="rounded-full bg-pureWhite px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-secondaryGray">
+                                  Deterministic
+                                </span>
+                              );
+                            })()}
                           </div>
                           <div className="mt-3 text-[15px] font-semibold text-nearBlack">{step.summary}</div>
                           <p className="mt-2 text-[13px] text-secondaryGray">

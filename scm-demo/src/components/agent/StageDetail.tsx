@@ -1,5 +1,5 @@
 import type { AgentStepView } from '../../lib/types';
-import { humanizeAction, humanizeLabel, humanizeNode, humanizeReasoningSource } from '../../lib/presenters';
+import { describeDecisionMethod, humanizeAction, humanizeLabel, humanizeNode, humanizeReasoningSource } from '../../lib/presenters';
 import { snapshotEntries, tracePhase } from './AgentShared';
 
 interface StageDetailProps {
@@ -21,10 +21,22 @@ export function StageDetail({ selectedStep }: StageDetailProps) {
               <span className="rounded-full border border-borderGray bg-pureWhite px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-secondaryGray">
                 {tracePhase(selectedStep.agent)}
               </span>
+              <span className={`rounded-full px-2 py-1 text-[11px] font-semibold uppercase tracking-wider ${
+                selectedStep.fallback_used || selectedStep.llm_error
+                  ? 'bg-amber-100 text-amber-700'
+                  : selectedStep.llm_used
+                    ? 'bg-rausch/10 text-rausch'
+                    : 'bg-lightSurface text-focusedGray'
+              }`}>
+                {describeDecisionMethod(selectedStep)}
+              </span>
             </div>
-            <p className="mt-2 text-[14px] text-secondaryGray">{selectedStep.summary}</p>
+            <div className="mt-3 rounded-card border border-borderGray bg-lightSurface px-4 py-4">
+              <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Stage summary</div>
+              <p className="mt-2 text-[14px] leading-relaxed text-nearBlack">{selectedStep.summary}</p>
+            </div>
             <p className="mt-2 text-[12px] uppercase tracking-wider text-secondaryGray">
-              Decision method: {humanizeReasoningSource(selectedStep.reasoning_source)}
+              Decision method: {describeDecisionMethod(selectedStep)} · {humanizeReasoningSource(selectedStep.reasoning_source)}
             </p>
           </div>
 
@@ -44,7 +56,7 @@ export function StageDetail({ selectedStep }: StageDetailProps) {
 
           {selectedStep.observations.length ? (
             <div>
-              <div className="text-[12px] uppercase tracking-wider text-secondaryGray">What the agent noticed</div>
+              <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Evidence used</div>
               <ul className="mt-3 space-y-2 text-[13px] text-secondaryGray">
                 {selectedStep.observations.map((item: string) => <li key={item}>• {item}</li>)}
               </ul>
@@ -62,7 +74,7 @@ export function StageDetail({ selectedStep }: StageDetailProps) {
 
           {selectedStep.downstream_impacts.length ? (
             <div>
-              <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Downstream impact</div>
+              <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Business impact</div>
               <ul className="mt-3 space-y-2 text-[13px] text-secondaryGray">
                 {selectedStep.downstream_impacts.map((item: string) => <li key={item}>• {item}</li>)}
               </ul>
@@ -80,7 +92,7 @@ export function StageDetail({ selectedStep }: StageDetailProps) {
 
           {selectedStep.tradeoffs.length ? (
             <div>
-              <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Operational tradeoffs</div>
+              <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Trade-offs to watch</div>
               <ul className="mt-3 space-y-2 text-[13px] text-secondaryGray">
                 {selectedStep.tradeoffs.map((item: string) => <li key={item}>• {item}</li>)}
               </ul>
@@ -89,7 +101,7 @@ export function StageDetail({ selectedStep }: StageDetailProps) {
 
           {selectedStep.llm_error ? (
             <div className="rounded-card border border-errorRed/20 bg-errorRed/5 px-4 py-3 text-[13px] text-errorRed">
-              AI assistance was unavailable for this step, so the system used its fallback path: {selectedStep.llm_error}
+              AI assistance was unavailable for this step, so the system used a fallback path: {selectedStep.llm_error}
             </div>
           ) : null}
         </div>

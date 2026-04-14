@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { TraceView, PendingApprovalView, ApprovalDetailView, ApprovalAction } from '../lib/types';
 import { BrainCircuit, CheckCircle2, CircleDashed, Clock, AlertCircle, FileText, BarChart3, Loader2 } from 'lucide-react';
+import { describeDecisionMethod, humanizeAction } from '../lib/presenters';
 import { ApprovalQueue } from './agent/ApprovalQueue';
 
 interface PlanGenerationProps {
@@ -10,6 +11,7 @@ interface PlanGenerationProps {
   approvalDetail?: ApprovalDetailView | null;
   actionLoading?: string | null;
   onApprovalAction?: (action: ApprovalAction, decisionId: string) => Promise<void>;
+  onSelectAlternative?: (decisionId: string, strategyLabel: string) => Promise<void>;
 }
 
 const STEP_ICONS: Record<string, any> = {
@@ -30,7 +32,8 @@ export function PlanGeneration({
   pendingApproval,
   approvalDetail,
   actionLoading,
-  onApprovalAction
+  onApprovalAction,
+  onSelectAlternative,
 }: PlanGenerationProps) {
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
 
@@ -125,12 +128,16 @@ export function PlanGeneration({
         <div className="p-8 border-b border-borderGray flex flex-col gap-5">
           <div className="flex items-center justify-between">
             <h2 className="text-[28px] font-bold text-nearBlack tracking-[-0.44px]">Analysis Insight</h2>
-            {activeStep.llm_used && (
-              <div className="flex items-center gap-2 px-4 py-2 bg-luxePurple/5 text-luxePurple rounded-badge border border-luxePurple/10 text-[12px] font-bold uppercase tracking-[0.32px]">
-                <BrainCircuit size={15} />
-                AI Generated
-              </div>
-            )}
+            <div className={`flex items-center gap-2 px-4 py-2 rounded-badge border text-[12px] font-bold uppercase tracking-[0.32px] ${
+              activeStep.fallback_used || activeStep.llm_error
+                ? 'bg-amber-100 text-amber-700 border-amber-200'
+                : activeStep.llm_used
+                  ? 'bg-luxePurple/5 text-luxePurple border-luxePurple/10'
+                  : 'bg-lightSurface text-focusedGray border-borderGray'
+            }`}>
+              <BrainCircuit size={15} />
+              {describeDecisionMethod(activeStep)}
+            </div>
           </div>
           
           <div className="bg-lightSurface p-6 rounded-[16px] border border-borderGray shadow-sm relative overflow-hidden">
@@ -140,9 +147,9 @@ export function PlanGeneration({
             </p>
             {activeStep.reasoning_source && (
               <div className="mt-4 pt-4 border-t border-borderGray/50 flex items-center gap-1.5">
-                <p className="text-[12px] font-bold text-secondaryGray uppercase tracking-[0.32px]">Source Engine:</p>
+                <p className="text-[12px] font-bold text-secondaryGray uppercase tracking-[0.32px]">Decision method:</p>
                 <p className="text-[13px] text-focusedGray font-medium bg-pureWhite px-2 py-0.5 rounded-sm border border-borderGray/50">
-                  {activeStep.reasoning_source.replace(/_/g, ' ')}
+                  {describeDecisionMethod(activeStep)} · {activeStep.reasoning_source.replace(/_/g, ' ')}
                 </p>
               </div>
             )}
@@ -160,13 +167,18 @@ export function PlanGeneration({
               onApprovalAction={async (action, decisionId) => {
                 if (onApprovalAction) await onApprovalAction(action, decisionId);
               }}
+              onSelectAlternative={async (decisionId, strategyLabel) => {
+                if (onSelectAlternative) {
+                  await onSelectAlternative(decisionId, strategyLabel);
+                }
+              }}
             />
           ) : (
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-10">
               
               {/* Observations Panel */}
               <div className="flex flex-col gap-5">
-                <h3 className="text-[14px] font-bold uppercase tracking-[0.32px] text-nearBlack">Observations & Telemetry</h3>
+                <h3 className="text-[14px] font-bold uppercase tracking-[0.32px] text-nearBlack">Evidence & Telemetry</h3>
                 {activeStep.observations && activeStep.observations.length > 0 ? (
                   <div className="space-y-4">
                     {activeStep.observations.map((obs, i) => (
@@ -179,6 +191,20 @@ export function PlanGeneration({
                 ) : (
                   <div className="text-[14px] text-secondaryGray italic p-6 bg-lightSurface rounded-[16px] text-center border border-dashed border-borderGray">
                     No direct observations recorded.
+                  </div>
+                )}
+
+                {activeStep.downstream_impacts && activeStep.downstream_impacts.length > 0 && (
+                  <div>
+                    <h3 className="text-[14px] font-bold uppercase tracking-[0.32px] text-nearBlack mb-5">Business Impact</h3>
+                    <div className="space-y-3">
+                      {activeStep.downstream_impacts.map((impact, i) => (
+                        <div key={i} className="flex items-start gap-3 p-4 bg-lightSurface border border-borderGray rounded-[16px]">
+                          <BarChart3 size={18} className="text-rausch mt-0.5 flex-shrink-0" />
+                          <p className="text-[14px] text-focusedGray font-medium">{impact}</p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -194,7 +220,7 @@ export function PlanGeneration({
                       {activeStep.recommended_action_ids.map((act, i) => (
                         <div key={i} className="flex items-center gap-3 p-4 bg-rausch/5 text-deepRausch font-semibold rounded-[16px] border border-rausch/10">
                           <CheckCircle2 size={18} />
-                          <span className="text-[15px]">{act}</span>
+                          <span className="text-[15px]">{humanizeAction(act)}</span>
                         </div>
                       ))}
                     </div>
@@ -207,7 +233,7 @@ export function PlanGeneration({
 
                 {/* Tradeoffs */}
                 <div>
-                  <h3 className="text-[14px] font-bold uppercase tracking-[0.32px] text-nearBlack mb-5">Considered Tradeoffs</h3>
+                  <h3 className="text-[14px] font-bold uppercase tracking-[0.32px] text-nearBlack mb-5">Trade-offs To Watch</h3>
                   {activeStep.tradeoffs && activeStep.tradeoffs.length > 0 ? (
                     <div className="flex flex-col gap-3">
                       {activeStep.tradeoffs.map((tradeoff, i) => (

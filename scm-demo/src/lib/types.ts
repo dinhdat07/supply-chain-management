@@ -68,6 +68,9 @@ export interface CandidateEvaluationView {
   approval_reason: string;
   rationale: string;
   llm_used: boolean;
+  coverage_fraction: number;
+  critical_covered: number;
+  unresolved_critical: number;
 }
 
 export interface HistoricalCase {
@@ -389,6 +392,7 @@ export interface ExecutionDetailResponse {
 export interface ActionExecutionRecordView {
   execution_id: string;
   plan_id: string;
+  dispatch_mode: string;
   action_id: string;
   action_type: string;
   target_system: string;
@@ -417,10 +421,6 @@ export interface PlanDispatchResponse {
   overall_progress: number;
   records: ActionExecutionRecordView[];
   compensation_hints: string[];
-}
-
-export interface ActionExecutionDetailResponse {
-  item: ActionExecutionRecordView;
 }
 
 export interface DecisionLogDetailView {

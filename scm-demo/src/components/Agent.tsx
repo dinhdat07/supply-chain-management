@@ -62,6 +62,10 @@ interface AgentProps {
     action: ApprovalAction,
     decisionId: string,
   ) => Promise<void>;
+  onSelectAlternative: (
+    decisionId: string,
+    strategyLabel: string,
+  ) => Promise<void>;
   onOpenRunLedger: () => void;
 }
 
@@ -137,6 +141,7 @@ export function Agent({
   onGenerateRecommendations,
   onRunScenario,
   onApprovalAction,
+  onSelectAlternative,
   onOpenRunLedger,
 }: AgentProps) {
   const [visibleStepCount, setVisibleStepCount] = useState(0);
@@ -464,6 +469,7 @@ export function Agent({
           currentEvent={currentEvent}
           alternativePlans={alternativePlans}
           onApprovalAction={onApprovalAction}
+          onSelectAlternative={onSelectAlternative}
         />
       ) : null}
     </div>

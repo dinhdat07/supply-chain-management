@@ -20,6 +20,7 @@ import {
   previewScenario,
   runDailyPlan,
   runScenario,
+  selectApprovalAlternative,
   submitApproval,
   resetSystem,
 } from "../lib/api";
@@ -282,6 +283,25 @@ export function useControlTower() {
     }
   }
 
+  async function handleSelectAlternative(
+    decisionId: string,
+    strategyLabel: string,
+  ) {
+    setActionLoading(`approval:select:${strategyLabel}`);
+    try {
+      await selectApprovalAlternative(decisionId, strategyLabel);
+      await refresh();
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Failed to select alternative strategy.",
+      );
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
   async function handleResetSystem() {
     setActionLoading("reset");
     try {
@@ -329,6 +349,7 @@ export function useControlTower() {
     runDailyPlan: handleRunDailyPlan,
     runScenario: handleRunScenario,
     applyApproval: handleApproval,
+    selectApprovalAlternative: handleSelectAlternative,
     selectRun: handleSelectRun,
     resetSystem: handleResetSystem,
   };
