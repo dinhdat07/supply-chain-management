@@ -22,6 +22,7 @@ import { ControlTowerHeader } from "./agent/ControlTowerHeader";
 import { ActiveWorkSection } from "./agent/ActiveWorkSection";
 import { WorkflowSection, type WorkspaceView } from "./agent/WorkflowSection";
 import { OperationsConsole } from "./agent/OperationsConsole";
+import { DecisionFlow } from "./agent/DecisionFlow";
 import { ExecutionDashboard } from "./agent/ExecutionDashboard";
 import { ApprovalQueue } from "./agent/ApprovalQueue";
 import { EventFeedPanel } from "./agent/EventFeedPanel";
@@ -328,11 +329,6 @@ export function Agent({
         <>
           <OperationsConsole
             summary={summary}
-            trace={trace}
-            baselineKpis={approvalDetail?.before_kpis ?? pendingApproval?.before_kpis ?? summary?.kpis ?? null}
-            selectedEvaluation={selectedEvaluation}
-            candidatePlans={candidatePlans}
-            selectionReason={trace?.selection_reason ?? approvalDetail?.selection_reason ?? pendingApproval?.selection_reason ?? null}
             workQueue={workQueue}
             loading={loading}
             refreshing={refreshing}
@@ -341,15 +337,39 @@ export function Agent({
             onGenerateRecommendations={onGenerateRecommendations}
           />
 
-          <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.08fr_0.92fr]">
-            <EventFeedPanel events={events} currentEvent={currentEvent} />
-            <ServiceHealthPanel serviceRuntime={serviceRuntime} />
-          </div>
-
-          <ReflectionMemoryPanel
-            reflections={reflections}
-            description="Recent reflection notes recorded after completed runs so operators can see what the control tower retained."
-          />
+          {selectedEvaluation ? (
+            <DecisionFlow
+              plan={selectedPlan!}
+              selectedEvaluation={selectedEvaluation}
+              candidatePlans={candidatePlans}
+              trace={trace}
+              baselineKpis={approvalDetail?.before_kpis ?? pendingApproval?.before_kpis ?? summary?.kpis ?? null}
+              reflections={reflections}
+              summary={summary}
+            />
+          ) : (
+            <div className="space-y-6">
+              <div className="rounded-[20px] border border-borderGray bg-pureWhite p-20 text-center shadow-card">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-lightSurface">
+                  <span className="text-[32px]">✨</span>
+                </div>
+                <h3 className="mt-6 text-[20px] font-bold text-nearBlack">
+                  Awaiting Operator Command
+                </h3>
+                <p className="mt-2 text-secondaryGray">
+                  Sync network state or generate a new logistics plan.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.08fr_0.92fr]">
+                <EventFeedPanel events={events} currentEvent={currentEvent} />
+                <ServiceHealthPanel serviceRuntime={serviceRuntime} />
+              </div>
+              <ReflectionMemoryPanel
+                reflections={reflections}
+                description="Recent reflection notes recorded after completed runs so operators can see what the control tower retained."
+              />
+            </div>
+          )}
 
           <div className="rounded-[24px] border border-borderGray bg-pureWhite p-6 shadow-card">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">

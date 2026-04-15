@@ -1,5 +1,5 @@
-import { humanizeStatus } from '../../lib/presenters';
-import { type StageStatus, stageTone } from './AgentShared';
+
+import { type StageStatus } from './AgentShared';
 
 export type WorkspaceView = 'operations' | 'execution' | 'approval';
 
