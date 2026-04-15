@@ -66,11 +66,8 @@ function App() {
             trace={trace}
             loading={loading}
             pendingApproval={pendingApproval}
-            approvalDetail={approvalDetail}
             actionLoading={actionLoading}
-            onApprovalAction={applyApproval}
-            onSelectAlternative={selectApprovalAlternative}
-            onStreamComplete={refresh}
+            onNavigateToControlTower={() => setCurrentTab("agent")}
           />
         );
       case "agent":
