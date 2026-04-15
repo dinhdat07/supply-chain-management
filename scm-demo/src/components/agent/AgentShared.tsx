@@ -11,7 +11,9 @@ import {
 } from 'lucide-react';
 import type { 
   EventView, 
-  CandidateEvaluationView 
+  CandidateEvaluationView,
+  ProjectedStateSummaryView,
+  ProjectionStepView,
 } from '../../lib/types';
 import { 
   formatCurrency, 
@@ -129,6 +131,29 @@ export function CandidatePlanCard({
         <div>Recovery <span className="font-semibold text-nearBlack">{formatPercent(evaluation.projected_kpis.recovery_speed)}</span></div>
         <div>Cost <span className="font-semibold text-nearBlack">{formatCurrency(evaluation.projected_kpis.total_cost)}</span></div>
       </div>
+      {evaluation.worst_case_kpis ? (
+        <div className="mt-3 grid grid-cols-1 gap-2 text-[12px] text-secondaryGray sm:grid-cols-3">
+          <div className="rounded-card border border-borderGray bg-lightSurface px-3 py-3">
+            <div className="uppercase tracking-wider text-secondaryGray">Worst service</div>
+            <div className="mt-1 font-semibold text-nearBlack">{formatPercent(evaluation.worst_case_kpis.service_level)}</div>
+          </div>
+          <div className="rounded-card border border-borderGray bg-lightSurface px-3 py-3">
+            <div className="uppercase tracking-wider text-secondaryGray">Worst risk</div>
+            <div className="mt-1 font-semibold text-nearBlack">{formatPercent(evaluation.worst_case_kpis.disruption_risk)}</div>
+          </div>
+          <div className="rounded-card border border-borderGray bg-lightSurface px-3 py-3">
+            <div className="uppercase tracking-wider text-secondaryGray">Horizon</div>
+            <div className="mt-1 font-semibold text-nearBlack">
+              {evaluation.simulation_horizon_days > 0
+                ? `${evaluation.simulation_horizon_days} day(s)`
+                : 'Static'}
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {evaluation.projection_steps.length ? (
+        <ProjectionTimelineStrip steps={evaluation.projection_steps} />
+      ) : null}
       <div className="mt-3 grid grid-cols-1 gap-2 text-[12px] text-secondaryGray sm:grid-cols-3">
         <div className="rounded-card border border-borderGray bg-lightSurface px-3 py-3">
           <div className="uppercase tracking-wider text-secondaryGray">Risk coverage</div>
@@ -144,6 +169,77 @@ export function CandidatePlanCard({
         </div>
       </div>
       <p className="mt-3 text-[13px] text-secondaryGray">{evaluation.rationale}</p>
+      {evaluation.projection_summary ? (
+        <p className="mt-2 text-[13px] text-secondaryGray">{evaluation.projection_summary}</p>
+      ) : null}
+      {evaluation.projected_state_summary ? (
+        <ProjectedStateSummaryCard summary={evaluation.projected_state_summary} />
+      ) : null}
+    </div>
+  );
+}
+
+export function ProjectionTimelineStrip({
+  steps,
+  title,
+}: {
+  steps: ProjectionStepView[];
+  title?: string;
+}) {
+  const heading =
+    title ??
+    (steps.length === 3
+      ? '3-Day outlook'
+      : 'Forward simulation');
+  return (
+    <div className="mt-4">
+      <div className="text-[11px] uppercase tracking-wider text-secondaryGray">{heading}</div>
+      <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+        {steps.map((step) => (
+          <div key={step.label} className="rounded-card border border-borderGray bg-lightSurface px-3 py-3 text-[12px] text-secondaryGray">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-bold text-nearBlack">{step.label}</span>
+              <span>{formatPercent(step.kpis.service_level)}</span>
+            </div>
+            <div className="mt-2 space-y-1">
+              <div>Risk {formatPercent(step.kpis.disruption_risk)}</div>
+              <div>At risk {step.inventory_at_risk}</div>
+              <div>Backlog {step.backlog_units}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function ProjectedStateSummaryCard({
+  summary,
+}: {
+  summary: ProjectedStateSummaryView;
+}) {
+  return (
+    <div className="mt-3 rounded-card border border-borderGray bg-lightSurface px-4 py-4 text-[13px] text-secondaryGray">
+      <div className="text-[11px] uppercase tracking-wider text-secondaryGray">Projected end-state</div>
+      <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div>
+          <div className="text-[11px] uppercase tracking-wider text-secondaryGray">At risk</div>
+          <div className="mt-1 font-semibold text-nearBlack">{summary.inventory_at_risk}</div>
+        </div>
+        <div>
+          <div className="text-[11px] uppercase tracking-wider text-secondaryGray">Out of stock</div>
+          <div className="mt-1 font-semibold text-nearBlack">{summary.inventory_out_of_stock}</div>
+        </div>
+        <div>
+          <div className="text-[11px] uppercase tracking-wider text-secondaryGray">Backlog</div>
+          <div className="mt-1 font-semibold text-nearBlack">{summary.backlog_units}</div>
+        </div>
+        <div>
+          <div className="text-[11px] uppercase tracking-wider text-secondaryGray">Constraint</div>
+          <div className="mt-1 font-semibold text-nearBlack">{humanizeLabel(summary.dominant_constraint)}</div>
+        </div>
+      </div>
+      <p className="mt-3">{summary.summary}</p>
     </div>
   );
 }

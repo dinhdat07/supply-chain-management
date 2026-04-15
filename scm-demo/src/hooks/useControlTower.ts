@@ -222,6 +222,30 @@ export function useControlTower() {
     void refresh();
   }, [refresh]);
 
+  useEffect(() => {
+    let intervalId: ReturnType<typeof setInterval>;
+    const isSimulating =
+      actionLoading === "daily_plan" ||
+      (actionLoading && actionLoading.startsWith("scenario:"));
+
+    if (isSimulating) {
+      // Clear current trace to force UI into running state
+      setData((current) => ({ ...current, trace: null }));
+      intervalId = setInterval(async () => {
+        try {
+          const freshTrace = await fetchTrace();
+          setData((current) => ({ ...current, trace: freshTrace.item }));
+        } catch (err) {
+          // Ignore polling errors
+        }
+      }, 500);
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [actionLoading]);
+
   async function handleRunDailyPlan() {
     setActionLoading("daily_plan");
     try {

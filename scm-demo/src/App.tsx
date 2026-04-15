@@ -66,10 +66,8 @@ function App() {
             trace={trace}
             loading={loading}
             pendingApproval={pendingApproval}
-            approvalDetail={approvalDetail}
             actionLoading={actionLoading}
-            onApprovalAction={applyApproval}
-            onSelectAlternative={selectApprovalAlternative}
+            onNavigateToControlTower={() => setCurrentTab("agent")}
           />
         );
       case "agent":
@@ -78,7 +76,6 @@ function App() {
             summary={summary}
             events={events}
             reflections={reflections}
-            serviceRuntime={serviceRuntime}
             trace={trace}
             pendingApproval={pendingApproval}
             approvalDetail={approvalDetail}
@@ -125,7 +122,7 @@ function App() {
   };
 
   return (
-    <Layout currentTab={currentTab} setTab={setCurrentTab}>
+    <Layout currentTab={currentTab} setTab={setCurrentTab} serviceRuntime={serviceRuntime}>
       {renderContent()}
       <GlobalScenarioWidget
         scenario={scenario}
