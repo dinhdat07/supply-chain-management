@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { AlertCircle, ArrowUpRight, Package } from 'lucide-react';
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
 
@@ -17,6 +18,14 @@ function percent(value: number) {
 
 export function Dashboard({ summary, inventory, loading, error }: DashboardProps) {
   const lowStockItems = inventory.filter((item) => item.status === 'low' || item.status === 'out_of_stock').length;
+  const prioritizedAlerts = useMemo(
+    () =>
+      [...(summary?.alerts ?? [])].sort((left, right) => {
+        const rank = { critical: 0, warning: 1, info: 2 } as const;
+        return rank[left.level] - rank[right.level];
+      }),
+    [summary?.alerts],
+  );
   const chartData = summary
     ? [
         { name: 'Service', value: Number((summary.kpis.service_level * 100).toFixed(1)) },
@@ -87,7 +96,7 @@ export function Dashboard({ summary, inventory, loading, error }: DashboardProps
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="col-span-2 bg-pureWhite p-6 rounded-card shadow-card border border-borderGray">
+        <div className="col-span-2 h-full bg-pureWhite p-6 rounded-card shadow-card border border-borderGray">
           <h2 className="text-[22px] font-semibold text-nearBlack tracking-[-0.44px] mb-6">KPI Snapshot</h2>
           <div className="h-[250px]">
             {loading || !summary ? (
@@ -117,31 +126,40 @@ export function Dashboard({ summary, inventory, loading, error }: DashboardProps
           ) : null}
         </div>
 
-        <div className="bg-pureWhite p-6 rounded-card shadow-card border border-borderGray flex flex-col">
+        <div className="flex h-full max-h-[430px] flex-col bg-pureWhite p-6 rounded-card shadow-card border border-borderGray">
           <h2 className="text-[22px] font-semibold text-nearBlack tracking-[-0.44px] mb-6">Alerts</h2>
           {loading || !summary ? (
             <div className="flex-1 rounded-card border border-borderGray bg-lightSurface/60 p-4 text-[14px] text-secondaryGray">
               Waiting for live alerts...
             </div>
-          ) : summary.alerts.length === 0 ? (
+          ) : prioritizedAlerts.length === 0 ? (
             <div className="flex-1 rounded-card border border-borderGray bg-lightSurface/60 p-4 text-[14px] text-secondaryGray">
               No active alerts. The network is currently stable.
             </div>
           ) : (
-            <div className="flex-1 space-y-4">
-              {summary.alerts.map((alert) => (
+            <div className="min-h-0 flex-1 overflow-y-auto pr-1 space-y-3 custom-scrollbar">
+              {prioritizedAlerts.map((alert) => (
                 <div
                   key={`${alert.source}-${alert.title}`}
-                  className={`flex items-start gap-4 rounded-card border p-4 ${
+                  className={`flex items-start gap-3 rounded-card border p-3 ${
                     alert.level === 'critical'
                       ? 'border-errorRed/10 bg-errorRed/5'
                       : 'border-borderGray bg-nearBlack/5'
                   }`}
                 >
-                  <AlertCircle className={alert.level === 'critical' ? 'text-errorRed mt-0.5 shrink-0' : 'text-nearBlack mt-0.5 shrink-0'} size={20} />
-                  <div>
-                    <h4 className="text-[16px] font-semibold text-nearBlack">{alert.title}</h4>
-                    <p className="mt-1 text-[14px] text-secondaryGray">{alert.message}</p>
+                  <AlertCircle className={alert.level === 'critical' ? 'text-errorRed mt-0.5 shrink-0' : 'text-nearBlack mt-0.5 shrink-0'} size={18} />
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-[15px] font-semibold text-nearBlack">{alert.title}</h4>
+                      <span className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                        alert.level === 'critical'
+                          ? 'bg-errorRed/10 text-errorRed'
+                          : 'bg-lightSurface text-secondaryGray'
+                      }`}>
+                        {alert.level}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-[13px] leading-relaxed text-secondaryGray">{alert.message}</p>
                   </div>
                 </div>
               ))}
