@@ -142,6 +142,7 @@ export function Agent({
   void selectedRunState;
   void selectedRunDecision;
   void selectedRunExecution;
+  void onOpenRunLedger;
 
   const steps = trace?.steps ?? [];
   const selectedPlan =
@@ -333,6 +334,8 @@ export function Agent({
             onGenerateRecommendations={onGenerateRecommendations}
           />
 
+          <EventFeedPanel events={events} currentEvent={currentEvent} />
+
           {selectedEvaluation ? (
             <DecisionFlow
               plan={selectedPlan!}
@@ -356,8 +359,6 @@ export function Agent({
               </p>
             </div>
           )}
-
-          <EventFeedPanel events={events} currentEvent={currentEvent} />
           
           {!selectedEvaluation && (
             <ReflectionMemoryPanel
@@ -365,30 +366,6 @@ export function Agent({
               description="Recent reflection notes recorded after completed runs so operators can see what the control tower retained."
             />
           )}
-
-          <div className="rounded-[24px] border border-borderGray bg-pureWhite p-6 shadow-card">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <div className="text-[12px] uppercase tracking-wider text-secondaryGray">
-                  Historical replay
-                </div>
-                <div className="mt-1 text-[20px] font-bold text-nearBlack">
-                  Run history is available in the dedicated ledger page
-                </div>
-                <p className="mt-2 text-[14px] text-secondaryGray">
-                  Open the Run Ledger to inspect past runs, replay traces,
-                  compare before and after state, and review execution history
-                  for a specific decision.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={onOpenRunLedger}
-                className="rounded-card bg-nearBlack px-5 py-3 text-[14px] font-bold text-pureWhite transition-all hover:bg-nearBlack/90">
-                Open Run Ledger
-              </button>
-            </div>
-          </div>
         </>
       ) : null}
 
