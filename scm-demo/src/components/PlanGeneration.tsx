@@ -104,33 +104,6 @@ export function PlanGeneration({
     } as any);
   }
 
-  if (displaySteps.length === 0) {
-    if (loading || !!actionLoading) {
-      return (
-        <div className="flex h-full items-center justify-center">
-          <div className="flex flex-col items-center gap-4 text-secondaryGray">
-            <Loader2 className="animate-spin text-rausch" size={32} />
-            <p>Initializing AI Agent pipeline...</p>
-          </div>
-        </div>
-      );
-    }
-    return (
-      <div className="flex h-full items-center justify-center">
-        <div className="text-center text-secondaryGray">
-          <p className="text-[22px] font-bold tracking-tight text-nearBlack">No AI Reasoning Trace Found</p>
-          <p className="mt-2 text-[14px]">Run a daily plan to generate a trace.</p>
-          <button
-            onClick={handleStartStream}
-            className="mt-6 flex items-center gap-2 mx-auto rounded bg-rausch px-6 py-3 text-[14px] font-bold text-pureWhite shadow-sm transition-all hover:shadow-hover hover:brightness-110 active:scale-[0.98]"
-          >
-            <Radio size={16} />
-            Start Streaming Run
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   const steps = displaySteps;
   const defaultStep = steps.find(s => s.status === 'running') || steps[steps.length - 1];
