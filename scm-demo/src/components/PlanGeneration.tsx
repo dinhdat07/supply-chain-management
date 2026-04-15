@@ -37,12 +37,12 @@ export function PlanGeneration({
 }: PlanGenerationProps) {
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
 
-  if (loading && (!trace || !trace.steps)) {
+  if ((loading || !!actionLoading) && (!trace || !trace.steps)) {
     return (
       <div className="flex h-full items-center justify-center">
         <div className="flex flex-col items-center gap-4 text-secondaryGray">
           <Loader2 className="animate-spin text-rausch" size={32} />
-          <p>Loading plan generation progress...</p>
+          <p>Initializing AI Agent pipeline...</p>
         </div>
       </div>
     );
@@ -68,6 +68,9 @@ export function PlanGeneration({
   const alternativePlans = candidatePlans.filter(
     (item) => item.strategy_label !== trace.selected_strategy,
   );
+  const selectedEvaluation = pendingApproval
+    ? candidatePlans.find((p) => p.strategy_label === pendingApproval.plan?.strategy_label) ?? null
+    : null;
   
   return (
     <div className="flex h-full gap-8 h-[calc(100vh-8rem)]">
@@ -163,6 +166,7 @@ export function PlanGeneration({
               approvalDetail={approvalDetail ?? null}
               actionLoading={actionLoading ?? null}
               currentEvent={trace?.event ?? null}
+              selectedEvaluation={selectedEvaluation}
               alternativePlans={alternativePlans}
               onApprovalAction={async (action, decisionId) => {
                 if (onApprovalAction) await onApprovalAction(action, decisionId);
