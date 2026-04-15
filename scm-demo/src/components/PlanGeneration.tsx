@@ -1,25 +1,22 @@
-import { useState } from 'react';
-import type { TraceView, PendingApprovalView, ApprovalDetailView, ApprovalAction } from '../lib/types';
-import { BrainCircuit, CheckCircle2, CircleDashed, Clock, AlertCircle, FileText, BarChart3, Loader2 } from 'lucide-react';
-import { describeDecisionMethod, humanizeAction } from '../lib/presenters';
-import { ApprovalQueue } from './agent/ApprovalQueue';
+import { useState, useRef, useEffect } from 'react';
+import type { TraceView, PendingApprovalView } from '../lib/types';
+import { BrainCircuit, CheckCircle2, Clock, ShieldAlert, PackageSearch, LineChart, Factory, Truck, Loader2, ArrowRight, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { AgentMessageBubble } from './agent/AgentMessageBubble';
 
 interface PlanGenerationProps {
   trace?: TraceView | null;
   loading: boolean;
   pendingApproval?: PendingApprovalView | null;
-  approvalDetail?: ApprovalDetailView | null;
   actionLoading?: string | null;
-  onApprovalAction?: (action: ApprovalAction, decisionId: string) => Promise<void>;
-  onSelectAlternative?: (decisionId: string, strategyLabel: string) => Promise<void>;
+  onNavigateToControlTower: () => void;
 }
 
 const STEP_ICONS: Record<string, any> = {
-  risk: AlertCircle,
-  supplier: Clock,
-  demand: BarChart3,
-  inventory: FileText,
-  logistics: Clock,
+  risk: ShieldAlert,
+  supplier: Factory,
+  demand: LineChart,
+  inventory: PackageSearch,
+  logistics: Truck,
   planner: BrainCircuit,
   critic: CheckCircle2,
   approval: CheckCircle2,
@@ -30,25 +27,94 @@ export function PlanGeneration({
   trace, 
   loading,
   pendingApproval,
-  approvalDetail,
   actionLoading,
-  onApprovalAction,
-  onSelectAlternative,
+  onNavigateToControlTower,
 }: PlanGenerationProps) {
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
+  const [highlightedStepId, setHighlightedStepId] = useState<string | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const isProgrammaticScroll = useRef(false);
+  const [autoScroll, setAutoScroll] = useState(true);
 
-  if ((loading || !!actionLoading) && (!trace || !trace.steps)) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <div className="flex flex-col items-center gap-4 text-secondaryGray">
-          <Loader2 className="animate-spin text-rausch" size={32} />
-          <p>Initializing AI Agent pipeline...</p>
-        </div>
-      </div>
-    );
+  // Handle scrolling when user scrolls manually
+  const handleScroll = () => {
+    if (isProgrammaticScroll.current) return;
+    if (!scrollRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+    // If scrolled up from the bottom more than 50px, disable autoscroll
+    const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
+    setAutoScroll(isAtBottom);
+  };
+
+  // Auto scroll effect
+  useEffect(() => {
+    if (autoScroll && scrollRef.current) {
+      isProgrammaticScroll.current = true;
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      setTimeout(() => { isProgrammaticScroll.current = false; }, 50);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trace?.steps?.length, actionLoading]);
+
+  // Scroll to specific step when clicked in sidebar
+  const scrollToStep = (stepId: string) => {
+    setSelectedStepId(stepId);
+    setAutoScroll(false);
+    setHighlightedStepId(stepId);
+    
+    isProgrammaticScroll.current = true;
+    
+    // Use requestAnimationFrame to ensure DOM is ready before scrolling
+    requestAnimationFrame(() => {
+      const element = document.getElementById(`step-${stepId}`);
+      if (element && scrollRef.current) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      // Unlock scroll listener after smooth scroll finishes
+      setTimeout(() => {
+        isProgrammaticScroll.current = false;
+      }, 800);
+    });
+    
+    // Clear highlight after 1s for faster blink
+    setTimeout(() => {
+      setHighlightedStepId(prev => prev === stepId ? null : prev);
+    }, 1000);
+  };
+
+  const baseSteps = trace?.steps || [];
+  let displaySteps = [...baseSteps];
+  
+  if (actionLoading && !actionLoading.startsWith('approval:') && (displaySteps.length === 0 || displaySteps[displaySteps.length - 1].status === 'completed')) {
+    displaySteps.push({
+      step_id: 'dummy-loading',
+      agent: 'system',
+      node_type: 'planner',
+      status: 'running',
+      started_at: new Date().toISOString(),
+      summary: '',
+      mode_snapshot: '',
+      observations: [],
+      risks: [],
+      downstream_impacts: [],
+      recommended_action_ids: [],
+      tradeoffs: [],
+      llm_used: false,
+    } as any);
   }
 
-  if (!trace || !trace.steps || trace.steps.length === 0) {
+  if (displaySteps.length === 0) {
+    if (loading || !!actionLoading) {
+      return (
+        <div className="flex h-full items-center justify-center">
+          <div className="flex flex-col items-center gap-4 text-secondaryGray">
+            <Loader2 className="animate-spin text-rausch" size={32} />
+            <p>Initializing AI Agent pipeline...</p>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="flex h-full items-center justify-center">
         <div className="text-center text-secondaryGray">
@@ -59,216 +125,168 @@ export function PlanGeneration({
     );
   }
 
-  const steps = trace.steps;
+  const steps = displaySteps;
   const defaultStep = steps.find(s => s.status === 'running') || steps[steps.length - 1];
-  const activeStep = selectedStepId ? steps.find(s => s.step_id === selectedStepId) || defaultStep : defaultStep;
-
-  const isApprovalStepActive = activeStep.node_type === 'gate' || activeStep.agent === 'approval';
-  const candidatePlans = trace.candidate_evaluations ?? [];
-  const alternativePlans = candidatePlans.filter(
-    (item) => item.strategy_label !== trace.selected_strategy,
-  );
-  const selectedEvaluation = pendingApproval
-    ? candidatePlans.find((p) => p.strategy_label === pendingApproval.plan?.strategy_label) ?? null
-    : null;
+  const activeStepId = selectedStepId || defaultStep?.step_id || `idx-${steps.length - 1}`;
   
   return (
-    <div className="flex h-full gap-8 h-[calc(100vh-8rem)]">
+    <div className="flex h-full gap-8 h-[calc(100vh-8rem)] relative">
       {/* Left Sidebar: Progress Stepper */}
-      <div className="w-[340px] flex-shrink-0 bg-pureWhite rounded-card shadow-card p-6 border border-borderGray flex flex-col overflow-hidden">
-        <div className="mb-8 flex items-center gap-3">
-          <div className="w-1.5 h-6 bg-rausch rounded-full" />
-          <h2 className="text-[22px] font-semibold text-nearBlack tracking-[-0.44px]">Agent Pipeline</h2>
-        </div>
+      <div className={`flex-shrink-0 transition-all duration-300 ease-in-out flex flex-col ${
+        isSidebarOpen ? 'w-[340px] opacity-100' : 'w-0 opacity-0 overflow-hidden'
+      }`}>
+        <div className="w-[340px] bg-pureWhite rounded-card shadow-card p-6 border border-borderGray flex flex-col h-full">
+          <div className="mb-8 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-1.5 h-6 bg-nearBlack rounded-full" />
+              <h2 className="text-[20px] font-bold text-nearBlack tracking-[-0.44px]">Agent Pipeline</h2>
+            </div>
+            <button 
+              onClick={() => setIsSidebarOpen(false)} 
+              className="p-1.5 text-secondaryGray hover:text-nearBlack hover:bg-lightSurface rounded-md transition-colors border border-transparent hover:border-borderGray"
+              title="Close Sidebar"
+            >
+              <PanelLeftClose size={18} />
+            </button>
+          </div>
 
-        <div className="flex-1 overflow-y-auto pr-2 relative" style={{ scrollbarWidth: 'thin' }}>
-          <div className="absolute left-[20px] top-6 bottom-6 w-[2px] bg-borderGray/60 rounded-full" />
-          <div className="space-y-2 relative z-10">
-            {steps.map((step, idx) => {
-              const isSelected = activeStep.step_id === step.step_id;
-              const isCompleted = step.status === 'completed';
-              const isRunning = step.status === 'running';
-              const Icon = STEP_ICONS[step.node_type] || BrainCircuit;
+          <div className="flex-1 overflow-y-auto pr-2 relative" style={{ scrollbarWidth: 'thin' }}>
+            <div className="absolute left-[28px] top-6 bottom-6 w-[2px] bg-borderGray/40 rounded-full" />
+            <div className="space-y-3 relative z-10">
+              {steps.map((step, idx) => {
+                const uniqueId = step.step_id || `idx-${idx}`;
+                const isSelected = activeStepId === uniqueId;
+                const isCompleted = step.status === 'completed';
+                const isRunning = step.status === 'running';
+                const Icon = STEP_ICONS[step.node_type] || STEP_ICONS[step.agent] || BrainCircuit;
 
-              return (
-                <button
-                  key={step.step_id || idx}
-                  onClick={() => setSelectedStepId(step.step_id || null)}
-                  className={`w-full flex items-start gap-4 text-left transition-all p-3 rounded-[12px] ${
-                    isSelected ? 'bg-lightSurface shadow-sm border border-borderGray/50' : 'hover:bg-lightSurface/50 border border-transparent'
-                  }`}
-                >
-                  <div className={`mt-0.5 flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center border-[2px] z-10 transition-colors shadow-sm ${
-                    isCompleted
-                      ? 'bg-rausch border-rausch text-pureWhite'
-                      : isRunning
-                        ? 'bg-pureWhite border-rausch text-rausch'
-                        : 'bg-lightSurface border-borderGray text-secondaryGray'
-                  }`}>
-                    {isCompleted ? <Icon size={18} /> : isRunning ? <Loader2 size={18} className="animate-spin" /> : <CircleDashed size={18} />}
-                  </div>
-                  <div className="flex-1 min-w-0 pt-0.5">
-                    <p className={`text-[16px] font-semibold leading-tight ${
-                      isSelected ? 'text-nearBlack' : isCompleted ? 'text-focusedGray' : 'text-secondaryGray'
+                return (
+                  <button
+                    key={uniqueId}
+                    onClick={() => scrollToStep(uniqueId)}
+                    className={`w-full flex items-start gap-4 text-left transition-all p-3.5 rounded-[16px] group ${
+                      isSelected ? 'bg-lightSurface shadow-sm border border-borderGray/80 ring-1 ring-borderGray/30' : 'hover:bg-lightSurface/60 border border-transparent'
+                    }`}
+                  >
+                    <div className={`mt-0.5 flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center z-10 transition-all duration-300 ${
+                      isCompleted
+                        ? 'bg-pureWhite border border-borderGray text-nearBlack shadow-sm group-hover:scale-105'
+                        : isRunning
+                          ? 'bg-rausch/10 text-rausch group-hover:scale-105'
+                          : 'bg-lightSurface border border-borderGray border-dashed text-secondaryGray group-hover:border-focusedGray group-hover:text-focusedGray'
                     }`}>
-                      {step.agent.charAt(0).toUpperCase() + step.agent.slice(1)} Agent
-                    </p>
-                    <p className={`text-[13px] mt-1.5 truncate font-medium tracking-tight ${
-                      isRunning ? 'text-rausch animate-pulse' : 'text-secondaryGray'
-                    }`}>
-                      {isCompleted ? `Completed in ${step.duration_ms}ms` : isRunning ? 'In Progress...' : 'Pending'}
-                    </p>
-                  </div>
-                </button>
-              );
-            })}
+                      <Icon size={18} className={isRunning ? 'animate-pulse' : ''} />
+                    </div>
+                    <div className="flex-1 min-w-0 pt-0.5">
+                      <p className={`text-[15px] font-bold leading-tight tracking-tight transition-colors ${
+                        isSelected ? 'text-nearBlack' : isCompleted ? 'text-focusedGray' : 'text-secondaryGray group-hover:text-focusedGray'
+                      }`}>
+                        {step.agent.charAt(0).toUpperCase() + step.agent.slice(1)} Agent
+                      </p>
+                      <p className={`text-[13px] mt-1.5 truncate font-medium tracking-tight ${
+                        isRunning ? 'text-rausch animate-pulse font-semibold' : 'text-secondaryGray'
+                      }`}>
+                        {isCompleted ? `Completed in ${(step.duration_ms! / 1000).toFixed(1)}s` : isRunning ? 'In Progress...' : 'Pending execution'}
+                      </p>
+                    </div>
+                    {isCompleted && (
+                      <div className="mt-1">
+                        <CheckCircle2 size={16} className="text-borderGray" />
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Right Content: Analysis Insight */}
-      <div className="flex-1 bg-pureWhite rounded-card shadow-card border border-borderGray flex flex-col overflow-hidden">
-        <div className="p-8 border-b border-borderGray flex flex-col gap-5">
+      {/* Right Content: Analysis Insight Chat Feed */}
+      <div className="flex-1 bg-lightSurface rounded-card shadow-card border border-borderGray flex flex-col overflow-hidden relative transition-all duration-300">
+        
+        {/* Header */}
+        <div className="px-8 py-5 border-b border-borderGray bg-pureWhite flex flex-col gap-1 z-10">
           <div className="flex items-center justify-between">
-            <h2 className="text-[28px] font-bold text-nearBlack tracking-[-0.44px]">Analysis Insight</h2>
-            <div className={`flex items-center gap-2 px-4 py-2 rounded-badge border text-[12px] font-bold uppercase tracking-[0.32px] ${
-              activeStep.fallback_used || activeStep.llm_error
-                ? 'bg-amber-100 text-amber-700 border-amber-200'
-                : activeStep.llm_used
-                  ? 'bg-luxePurple/5 text-luxePurple border-luxePurple/10'
-                  : 'bg-lightSurface text-focusedGray border-borderGray'
-            }`}>
-              <BrainCircuit size={15} />
-              {describeDecisionMethod(activeStep)}
+            <div className="flex items-center gap-3">
+              {!isSidebarOpen && (
+                <button 
+                  onClick={() => setIsSidebarOpen(true)} 
+                  className="p-1.5 text-secondaryGray hover:text-nearBlack hover:bg-lightSurface rounded-md transition-colors mr-2"
+                  title="Open Sidebar"
+                >
+                  <PanelLeftOpen size={20} />
+                </button>
+              )}
+              <h2 className="text-[20px] font-bold text-nearBlack tracking-tight flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-rausch/10 text-rausch flex items-center justify-center border border-rausch/20">
+                  <BrainCircuit size={18} />
+                </div>
+                ChainCopilot
+              </h2>
             </div>
-          </div>
-          
-          <div className="bg-lightSurface p-6 rounded-[16px] border border-borderGray shadow-sm relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-1 h-full bg-rausch" />
-            <p className="text-[16px] text-nearBlack font-medium leading-[1.6]">
-              {activeStep.summary || 'Waiting for agent to produce insights...'}
-            </p>
-            {activeStep.reasoning_source && (
-              <div className="mt-4 pt-4 border-t border-borderGray/50 flex items-center gap-1.5">
-                <p className="text-[12px] font-bold text-secondaryGray uppercase tracking-[0.32px]">Decision method:</p>
-                <p className="text-[13px] text-focusedGray font-medium bg-pureWhite px-2 py-0.5 rounded-sm border border-borderGray/50">
-                  {describeDecisionMethod(activeStep)} · {activeStep.reasoning_source.replace(/_/g, ' ')}
-                </p>
+            {actionLoading && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-badge bg-lightSurface border border-borderGray text-[12px] font-bold uppercase tracking-[0.32px] text-focusedGray">
+                <Loader2 size={14} className="animate-spin" />
+                Thinking...
               </div>
             )}
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-8 bg-pureWhite" style={{ scrollbarWidth: 'thin' }}>
-          {(isApprovalStepActive && pendingApproval) ? (
-            <ApprovalQueue
-              pendingApproval={pendingApproval}
-              approvalDetail={approvalDetail ?? null}
-              actionLoading={actionLoading ?? null}
-              currentEvent={trace?.event ?? null}
-              selectedEvaluation={selectedEvaluation}
-              alternativePlans={alternativePlans}
-              onApprovalAction={async (action, decisionId) => {
-                if (onApprovalAction) await onApprovalAction(action, decisionId);
-              }}
-              onSelectAlternative={async (decisionId, strategyLabel) => {
-                if (onSelectAlternative) {
-                  await onSelectAlternative(decisionId, strategyLabel);
-                }
-              }}
-            />
-          ) : (
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-10">
-              
-              {/* Observations Panel */}
-              <div className="flex flex-col gap-5">
-                <h3 className="text-[14px] font-bold uppercase tracking-[0.32px] text-nearBlack">Evidence & Telemetry</h3>
-                {activeStep.observations && activeStep.observations.length > 0 ? (
-                  <div className="space-y-4">
-                    {activeStep.observations.map((obs, i) => (
-                      <div key={i} className="p-5 bg-pureWhite rounded-[16px] border border-borderGray flex items-start gap-4 shadow-sm hover:shadow-hover transition-all duration-200">
-                        <div className="w-2 h-2 bg-rausch rounded-full mt-2.5 flex-shrink-0 shadow-[0_0_8px_rgba(255,56,92,0.5)]" />
-                        <p className="text-[14px] text-focusedGray font-medium leading-relaxed">{obs}</p>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-[14px] text-secondaryGray italic p-6 bg-lightSurface rounded-[16px] text-center border border-dashed border-borderGray">
-                    No direct observations recorded.
-                  </div>
-                )}
-
-                {activeStep.downstream_impacts && activeStep.downstream_impacts.length > 0 && (
-                  <div>
-                    <h3 className="text-[14px] font-bold uppercase tracking-[0.32px] text-nearBlack mb-5">Business Impact</h3>
-                    <div className="space-y-3">
-                      {activeStep.downstream_impacts.map((impact, i) => (
-                        <div key={i} className="flex items-start gap-3 p-4 bg-lightSurface border border-borderGray rounded-[16px]">
-                          <BarChart3 size={18} className="text-rausch mt-0.5 flex-shrink-0" />
-                          <p className="text-[14px] text-focusedGray font-medium">{impact}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+        {/* Scrollable Message Feed */}
+        <div 
+          ref={scrollRef}
+          onScroll={handleScroll}
+          className="flex-1 overflow-y-auto p-8 space-y-8" 
+          style={{ scrollbarWidth: 'thin' }}
+        >
+          {steps.map((step, idx) => {
+            const uniqueId = step.step_id || `idx-${idx}`;
+            return (
+              <div id={`step-${uniqueId}`} key={uniqueId} className="scroll-mt-6">
+                <AgentMessageBubble 
+                  step={step} 
+                  isLast={idx === steps.length - 1} 
+                  isHighlighted={highlightedStepId === uniqueId}
+                />
               </div>
+            );
+          })}
 
-              {/* Metrics/Tradeoffs Panel */}
-              <div className="flex flex-col gap-8">
-                
-                {/* Recommended Actions */}
-                <div>
-                  <h3 className="text-[14px] font-bold uppercase tracking-[0.32px] text-nearBlack mb-5">Recommended Actions</h3>
-                  {activeStep.recommended_action_ids && activeStep.recommended_action_ids.length > 0 ? (
-                    <div className="space-y-3">
-                      {activeStep.recommended_action_ids.map((act, i) => (
-                        <div key={i} className="flex items-center gap-3 p-4 bg-rausch/5 text-deepRausch font-semibold rounded-[16px] border border-rausch/10">
-                          <CheckCircle2 size={18} />
-                          <span className="text-[15px]">{humanizeAction(act)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-[14px] text-secondaryGray p-5 bg-lightSurface rounded-[16px] border border-dashed border-borderGray text-center">
-                      None recommended by this agent.
-                    </div>
-                  )}
-                </div>
-
-                {/* Tradeoffs */}
-                <div>
-                  <h3 className="text-[14px] font-bold uppercase tracking-[0.32px] text-nearBlack mb-5">Trade-offs To Watch</h3>
-                  {activeStep.tradeoffs && activeStep.tradeoffs.length > 0 ? (
-                    <div className="flex flex-col gap-3">
-                      {activeStep.tradeoffs.map((tradeoff, i) => (
-                        <div key={i} className="flex items-center justify-between p-4 bg-pureWhite border border-borderGray rounded-[16px] shadow-sm">
-                          <span className="text-[14px] text-focusedGray font-medium">{tradeoff}</span>
-                          <span className="text-[12px] font-bold text-legalBlue bg-legalBlue/10 px-2 py-1 rounded-sm">Analyzed</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-[14px] text-secondaryGray italic p-5 bg-lightSurface rounded-[16px] border border-dashed border-borderGray text-center">
-                      No critical tradeoffs flagged.
-                    </p>
-                  )}
-                </div>
-                
-                {/* Risks */}
-                {activeStep.risks && activeStep.risks.length > 0 && (
-                  <div>
-                    <h3 className="text-[14px] font-bold uppercase tracking-[0.32px] text-errorRed mb-5">Identified Risks</h3>
-                    <div className="space-y-3">
-                      {activeStep.risks.map((risk, i) => (
-                        <div key={i} className="flex items-start gap-3 p-4 bg-errorRed/5 border border-errorRed/10 rounded-[16px]">
-                          <AlertCircle size={18} className="text-errorRed mt-0.5 flex-shrink-0" />
-                          <p className="text-[14px] text-errorDark font-medium">{risk}</p>
-                        </div>
-                      ))}
-                    </div>
+          {/* Pending Approval Card as Final Message */}
+          {!!pendingApproval && (
+            <div className="flex gap-4 group animate-in fade-in slide-in-from-bottom-4 duration-500 mt-8 border-t border-borderGray/50 pt-8">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-rausch text-pureWhite flex items-center justify-center shadow-card border-2 border-pureWhite mt-1 z-10">
+                <CheckCircle2 size={18} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-3 mb-1.5">
+                  <span className="font-bold text-[15px] text-nearBlack tracking-[-0.22px]">
+                    ChainCopilot System
+                  </span>
+                  <div className="px-2 py-0.5 rounded-sm border text-[10px] font-bold uppercase tracking-[0.32px] bg-amber-100 text-amber-700 border-amber-200">
+                    Awaiting Approval
                   </div>
-                )}
-
+                </div>
+                <div className="bg-pureWhite border border-borderGray rounded-card shadow-sm p-6 flex flex-col items-center text-center gap-4">
+                  <div className="w-12 h-12 bg-rausch/10 text-rausch rounded-full flex items-center justify-center mb-2">
+                    <CheckCircle2 size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-[16px] font-bold text-nearBlack">Plan Ready for Approval</h3>
+                    <p className="text-[14px] text-secondaryGray mt-1 max-w-[400px] leading-relaxed">
+                      The AI agents have successfully formulated a recovery plan. Please proceed to the Control Tower to review alternatives, analyze tradeoffs, and authorize execution.
+                    </p>
+                  </div>
+                  <button
+                    onClick={onNavigateToControlTower}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-nearBlack text-pureWhite rounded-card text-[14px] font-bold shadow-sm hover:shadow-hover hover:bg-nearBlack/90 transition-all mt-2"
+                  >
+                    Go to Control Tower
+                    <ArrowRight size={16} />
+                  </button>
+                </div>
               </div>
             </div>
           )}
