@@ -159,52 +159,48 @@ export function OperationsConsole({
       </div>
 
       {/* ── Row 2: KPI Strip ── */}
-      <div className="rounded-[20px] border border-borderGray bg-pureWhite p-1 shadow-card">
-        <div className="grid grid-cols-3 gap-px overflow-hidden rounded-[19px] bg-borderGray/30 sm:grid-cols-6">
-          {[
-            {
-              label: "Service level",
-              value: summary ? formatPercent(summary.kpis.service_level) : "--",
-            },
-            {
-              label: "Total cost",
-              value: summary
-                ? `$${summary.kpis.total_cost.toLocaleString()}`
-                : "--",
-            },
-            {
-              label: "Recovery speed",
-              value: summary
-                ? formatPercent(summary.kpis.recovery_speed)
-                : "--",
-            },
-            {
-              label: "Disruption risk",
-              value: summary
-                ? formatPercent(summary.kpis.disruption_risk)
-                : "--",
-            },
-            {
-              label: "Stockout risk",
-              value: summary ? formatPercent(summary.kpis.stockout_risk) : "--",
-            },
-            {
-              label: "Latency",
-              value: summary
-                ? `${summary.kpis.decision_latency_ms.toFixed(2)}ms`
-                : "--",
-            },
-          ].map((kpi) => (
-            <div key={kpi.label} className="bg-pureWhite px-5 py-4">
-              <div className="text-[10px] font-bold uppercase tracking-widest text-secondaryGray">
-                {kpi.label}
-              </div>
-              <div className="mt-1 text-[20px] font-bold leading-none text-nearBlack">
-                {kpi.value}
-              </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {[
+          {
+            title: "Performance",
+            metrics: [
+              { label: "Service level", value: summary ? formatPercent(summary.kpis.service_level) : "--" },
+              { label: "Recovery speed", value: summary ? formatPercent(summary.kpis.recovery_speed) : "--" },
+            ]
+          },
+          {
+            title: "Risk",
+            metrics: [
+              { label: "Disruption risk", value: summary ? formatPercent(summary.kpis.disruption_risk) : "--" },
+              { label: "Stockout risk", value: summary ? formatPercent(summary.kpis.stockout_risk) : "--" },
+            ]
+          },
+          {
+            title: "Cost & Efficiency",
+            metrics: [
+              { label: "Total cost", value: summary ? `$${summary.kpis.total_cost.toLocaleString()}` : "--" },
+              { label: "Decision latency", value: summary ? `${summary.kpis.decision_latency_ms.toFixed(0)}ms` : "--" },
+            ]
+          }
+        ].map((group) => (
+          <div key={group.title} className="rounded-[20px] border border-borderGray bg-pureWhite p-5 shadow-sm">
+            <div className="text-[11px] font-black uppercase tracking-widest text-secondaryGray mb-4 pb-2 border-b border-borderGray/30">
+              {group.title}
             </div>
-          ))}
-        </div>
+            <div className="grid grid-cols-2 gap-4">
+              {group.metrics.map(kpi => (
+                <div key={kpi.label}>
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-secondaryGray">
+                    {kpi.label}
+                  </div>
+                  <div className="mt-1 text-[20px] font-bold leading-none text-nearBlack">
+                    {kpi.value}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* ── Row 3: Metrics + Exceptions ── */}
