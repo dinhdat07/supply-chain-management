@@ -724,8 +724,16 @@ export function DecisionFlow({
                   <div className="text-[13px] font-bold text-nearBlack">
                     {reflection.summary}
                   </div>
-                  <div className="mt-0.5 text-[12px] text-secondaryGray">
-                    {reflection.lessons.join(" • ")}
+                  <div className="mt-1 space-y-1 text-[12px] text-secondaryGray">
+                    {reflection.lessons.map((lesson, lessonIndex) => (
+                      <div
+                        key={`${reflection.note_id}-lesson-${lessonIndex}`}
+                        className="flex items-start gap-2"
+                      >
+                        <span className="mt-[2px] text-rausch">•</span>
+                        <span>{lesson}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
