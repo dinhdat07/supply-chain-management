@@ -42,7 +42,7 @@ export function RunLedgerPage({
               Run Ledger
             </h1>
             <p className="mt-2 max-w-3xl text-[15px] text-secondaryGray">
-              Audit completed orchestration runs, inspect the trace step by step, compare before and after state, and follow the causal chain from signal to plan to execution.
+              Review completed orchestration runs as a concise execution story: what triggered the run, which plan was selected, what changed in the system, and what the platform learned.
             </p>
           </div>
           <div className="rounded-full border border-borderGray bg-lightSurface px-4 py-2 text-[12px] font-bold uppercase tracking-[0.16em] text-secondaryGray">
