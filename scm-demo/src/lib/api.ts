@@ -196,3 +196,10 @@ export function triggerStreamingPlan() {
     method: "POST",
   });
 }
+
+export function triggerStreamingScenario(scenarioName: ScenarioName) {
+  return requestJson<StreamTriggerResponse>("/scenarios/run/stream", {
+    method: "POST",
+    body: JSON.stringify({ scenario_name: scenarioName }),
+  });
+}

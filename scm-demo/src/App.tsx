@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Agent } from "./components/Agent";
 import { Dashboard } from "./components/Dashboard";
 import { Inventory } from "./components/Inventory";
@@ -8,6 +8,7 @@ import { Suppliers } from "./components/Suppliers";
 import { PlanGeneration } from "./components/PlanGeneration";
 import { GlobalScenarioWidget } from "./components/GlobalScenarioWidget";
 import { useControlTower } from "./hooks/useControlTower";
+import { useThinkingStream } from "./hooks/useThinkingStream";
 import type { ScenarioName } from "./lib/types";
 
 function App() {
@@ -20,7 +21,7 @@ function App() {
     serviceRuntime,
     inventory,
     suppliers,
-    trace,
+    trace: polledTrace,
     pendingApproval,
     approvalDetail,
     scenarioPreview,
@@ -37,13 +38,47 @@ function App() {
     error,
     refresh,
     previewScenario,
-    runDailyPlan,
-    runScenario,
+    // runDailyPlan,
+    // runScenario,
     applyApproval,
     selectApprovalAlternative,
     selectRun,
     resetSystem,
   } = useControlTower();
+
+  const thinking = useThinkingStream();
+  const [streamingAction, setStreamingAction] = useState<string | null>(null);
+
+  // Use the real-time trace from WebSocket when streaming, fall back to polled trace
+  const isStreaming = thinking.status === "connecting" || thinking.status === "streaming";
+  const liveTrace = thinking.trace ?? polledTrace;
+
+  // Derive actionLoading from the stream status so PlanGeneration
+  // shows the "Thinking..." indicator while agents are working
+  const effectiveActionLoading = isStreaming ? streamingAction : actionLoading;
+
+  // Wrap thinking.start to also act as "run daily plan"
+  const handleStreamingDailyPlan = async () => {
+    setStreamingAction("daily_plan");
+    await thinking.start();
+  };
+
+  // Wrap scenario run: trigger the scenario then start the stream
+  const handleStreamingScenario = async (scenarioName: ScenarioName) => {
+    setStreamingAction(`scenario:${scenarioName}`);
+    // Scenarios still go through the non-streaming path then refresh
+    await thinking.start(scenarioName);
+  };
+
+  // When the stream completes, refresh all data to pick up final state
+  const prevStreamStatus = useRef(thinking.status);
+  useEffect(() => {
+    if (prevStreamStatus.current === "streaming" && thinking.status === "completed") {
+      // Stream just finished — refresh polled data to pick up final state
+      void refresh();
+    }
+    prevStreamStatus.current = thinking.status;
+  }, [thinking.status, refresh]);
 
   const renderContent = () => {
     switch (currentTab) {
@@ -63,10 +98,12 @@ function App() {
       case "plan-generation":
         return (
           <PlanGeneration
-            trace={trace}
+            trace={liveTrace}
             loading={loading}
             pendingApproval={pendingApproval}
-            actionLoading={actionLoading}
+            actionLoading={effectiveActionLoading}
+            thinkingEvents={thinking.events}
+            streamStatus={thinking.status}
             onNavigateToControlTower={() => setCurrentTab("agent")}
           />
         );
@@ -76,7 +113,7 @@ function App() {
             summary={summary}
             events={events}
             reflections={reflections}
-            trace={trace}
+            trace={polledTrace}
             pendingApproval={pendingApproval}
             approvalDetail={approvalDetail}
             scenarioPreview={scenarioPreview}
@@ -89,13 +126,13 @@ function App() {
             scenario={scenario}
             loading={loading}
             refreshing={refreshing}
-            actionLoading={actionLoading}
+            actionLoading={effectiveActionLoading}
             error={error}
             onScenarioChange={setScenario}
             onRefresh={refresh}
             onPreviewScenario={previewScenario}
-            onGenerateRecommendations={runDailyPlan}
-            onRunScenario={runScenario}
+            onGenerateRecommendations={handleStreamingDailyPlan}
+            onRunScenario={handleStreamingScenario}
             onApprovalAction={applyApproval}
             onSelectAlternative={selectApprovalAlternative}
             onOpenRunLedger={() => setCurrentTab("ledger")}
@@ -127,10 +164,10 @@ function App() {
       <GlobalScenarioWidget
         scenario={scenario}
         onScenarioChange={setScenario}
-        onRunScenario={runScenario}
+        onRunScenario={handleStreamingScenario}
         onResetSystem={resetSystem}
         loading={loading}
-        actionLoading={actionLoading}
+        actionLoading={effectiveActionLoading}
       />
     </Layout>
   );

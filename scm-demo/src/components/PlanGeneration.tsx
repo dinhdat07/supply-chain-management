@@ -1,13 +1,17 @@
 import { useState, useRef, useEffect } from 'react';
-import type { TraceView, PendingApprovalView } from '../lib/types';
+import type { TraceView, PendingApprovalView, ThinkingEvent } from '../lib/types';
+import type { StreamStatus } from '../hooks/useThinkingStream';
 import { BrainCircuit, CheckCircle2, Clock, ShieldAlert, PackageSearch, LineChart, Factory, Truck, Loader2, ArrowRight, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { AgentMessageBubble } from './agent/AgentMessageBubble';
+import { ThinkingEventBubble } from './agent/ThinkingEventBubble';
 
 interface PlanGenerationProps {
   trace?: TraceView | null;
   loading: boolean;
   pendingApproval?: PendingApprovalView | null;
   actionLoading?: string | null;
+  thinkingEvents?: ThinkingEvent[];
+  streamStatus?: StreamStatus;
   onNavigateToControlTower: () => void;
 }
 
@@ -28,6 +32,8 @@ export function PlanGeneration({
   loading,
   pendingApproval,
   actionLoading,
+  thinkingEvents = [],
+  streamStatus = 'idle',
   onNavigateToControlTower,
 }: PlanGenerationProps) {
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
@@ -36,18 +42,34 @@ export function PlanGeneration({
   const scrollRef = useRef<HTMLDivElement>(null);
   const isProgrammaticScroll = useRef(false);
   const [autoScroll, setAutoScroll] = useState(true);
+  const [viewMode, setViewMode] = useState<'summary' | 'events'>('summary');
+
+  // Auto-switch tabs based on stream state
+  useEffect(() => {
+    if (streamStatus === 'connecting' || streamStatus === 'streaming') {
+      setViewMode('events');
+    } else if (streamStatus === 'completed') {
+      setViewMode('summary');
+    }
+  }, [streamStatus]);
+
+  // Are we currently showing the live event stream?
+  const isStreamActive = streamStatus === 'connecting' || streamStatus === 'streaming';
+  const hasStreamEvents = thinkingEvents.length > 0;
+  
+  // Decide which to show based on state
+  const showEventStream = viewMode === 'events' && hasStreamEvents;
 
   // Handle scrolling when user scrolls manually
   const handleScroll = () => {
     if (isProgrammaticScroll.current) return;
     if (!scrollRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
-    // If scrolled up from the bottom more than 50px, disable autoscroll
     const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
     setAutoScroll(isAtBottom);
   };
 
-  // Auto scroll effect
+  // Auto scroll when new events arrive or steps change
   useEffect(() => {
     if (autoScroll && scrollRef.current) {
       isProgrammaticScroll.current = true;
@@ -55,7 +77,7 @@ export function PlanGeneration({
       setTimeout(() => { isProgrammaticScroll.current = false; }, 50);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trace?.steps?.length, actionLoading]);
+  }, [thinkingEvents.length, trace?.steps?.length, actionLoading]);
 
   // Scroll to specific step when clicked in sidebar
   const scrollToStep = (stepId: string) => {
@@ -65,24 +87,22 @@ export function PlanGeneration({
     
     isProgrammaticScroll.current = true;
     
-    // Use requestAnimationFrame to ensure DOM is ready before scrolling
     requestAnimationFrame(() => {
       const element = document.getElementById(`step-${stepId}`);
       if (element && scrollRef.current) {
         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
-      // Unlock scroll listener after smooth scroll finishes
       setTimeout(() => {
         isProgrammaticScroll.current = false;
       }, 800);
     });
     
-    // Clear highlight after 1s for faster blink
     setTimeout(() => {
       setHighlightedStepId(prev => prev === stepId ? null : prev);
     }, 1000);
   };
 
+  // Build sidebar steps from trace (always use trace.steps for the sidebar pipeline)
   const baseSteps = trace?.steps || [];
   let displaySteps = [...baseSteps];
   
@@ -103,7 +123,6 @@ export function PlanGeneration({
       llm_used: false,
     } as any);
   }
-
 
   const steps = displaySteps;
   const defaultStep = steps.find(s => s.status === 'running') || steps[steps.length - 1];
@@ -182,7 +201,7 @@ export function PlanGeneration({
         </div>
       </div>
 
-      {/* Right Content: Analysis Insight Chat Feed */}
+      {/* Right Content: Chat Feed */}
       <div className="flex-1 bg-lightSurface rounded-card shadow-card border border-borderGray flex flex-col overflow-hidden relative transition-all duration-300">
         
         {/* Header */}
@@ -205,12 +224,55 @@ export function PlanGeneration({
                 ChainCopilot
               </h2>
             </div>
-            {actionLoading && (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-badge bg-lightSurface border border-borderGray text-[12px] font-bold uppercase tracking-[0.32px] text-focusedGray">
-                <Loader2 size={14} className="animate-spin" />
-                Thinking...
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              {hasStreamEvents && (
+                <div className="flex bg-lightSurface p-1 rounded-[8px] border border-borderGray mr-2">
+                  <button
+                    onClick={() => setViewMode('summary')}
+                    className={`px-3 py-1 text-[11px] font-bold uppercase tracking-[0.32px] rounded transition-all ${
+                      viewMode === 'summary' ? 'bg-pureWhite text-nearBlack shadow-sm' : 'text-secondaryGray hover:text-nearBlack'
+                    }`}
+                  >
+                    Summaries
+                  </button>
+                  <button
+                    onClick={() => setViewMode('events')}
+                    className={`flex items-center gap-1.5 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.32px] rounded transition-all ${
+                      viewMode === 'events' ? 'bg-pureWhite text-nearBlack shadow-sm' : 'text-secondaryGray hover:text-nearBlack'
+                    }`}
+                  >
+                    Live Logs
+                    {isStreamActive && (
+                      <span className="relative flex h-1.5 w-1.5">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rausch opacity-75" />
+                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-rausch" />
+                      </span>
+                    )}
+                  </button>
+                </div>
+              )}
+              {isStreamActive && (
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-badge bg-rausch/5 border border-rausch/20 text-[12px] font-bold uppercase tracking-[0.32px] text-rausch">
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rausch opacity-75" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-rausch" />
+                  </span>
+                  Live · {thinkingEvents.length} events
+                </div>
+              )}
+              {streamStatus === 'completed' && hasStreamEvents && (
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-badge bg-green-50 border border-green-200 text-[12px] font-bold uppercase tracking-[0.32px] text-green-700">
+                  <CheckCircle2 size={14} />
+                  {thinkingEvents.length} events
+                </div>
+              )}
+              {actionLoading && !isStreamActive && (
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-badge bg-lightSurface border border-borderGray text-[12px] font-bold uppercase tracking-[0.32px] text-focusedGray">
+                  <Loader2 size={14} className="animate-spin" />
+                  Thinking...
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -218,25 +280,57 @@ export function PlanGeneration({
         <div 
           ref={scrollRef}
           onScroll={handleScroll}
-          className="flex-1 overflow-y-auto p-8 space-y-8" 
+          className="flex-1 overflow-y-auto p-8 space-y-6" 
           style={{ scrollbarWidth: 'thin' }}
         >
-          {steps.map((step, idx) => {
-            const uniqueId = step.step_id || `idx-${idx}`;
-            return (
-              <div id={`step-${uniqueId}`} key={uniqueId} className="scroll-mt-6">
-                <AgentMessageBubble 
-                  step={step} 
-                  isLast={idx === steps.length - 1} 
-                  isHighlighted={highlightedStepId === uniqueId}
-                />
-              </div>
-            );
-          })}
+          {showEventStream ? (
+            <>
+              {/* Render each individual ThinkingEvent */}
+              {thinkingEvents.map((event, idx) => (
+                <div id={`step-event-${idx}`} key={`${event.sequence}-${idx}`} className="scroll-mt-6">
+                  <ThinkingEventBubble
+                    event={event}
+                    isLast={idx === thinkingEvents.length - 1}
+                    isStreaming={isStreamActive}
+                  />
+                </div>
+              ))}
+
+              {/* Streaming indicator */}
+              {isStreamActive && (
+                <div className="flex items-center gap-4 pl-1">
+                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-lightSurface border border-borderGray border-dashed flex items-center justify-center">
+                    <Loader2 size={18} className="animate-spin text-rausch" />
+                  </div>
+                  <span className="text-[13px] font-medium text-secondaryGray animate-pulse">
+                    {streamStatus === 'connecting'
+                      ? 'Connecting to agent pipeline...'
+                      : 'Waiting for next reasoning step...'}
+                  </span>
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              {/* Fallback: render trace.steps when not streaming */}
+              {steps.map((step, idx) => {
+                const uniqueId = step.step_id || `idx-${idx}`;
+                return (
+                  <div id={`step-${uniqueId}`} key={uniqueId} className="scroll-mt-6">
+                    <AgentMessageBubble 
+                      step={step} 
+                      isLast={idx === steps.length - 1} 
+                      isHighlighted={highlightedStepId === uniqueId}
+                    />
+                  </div>
+                );
+              })}
+            </>
+          )}
 
           {/* Pending Approval Card as Final Message */}
-          {!!pendingApproval && (
-            <div className="flex gap-4 group animate-in fade-in slide-in-from-bottom-4 duration-500 mt-8 border-t border-borderGray/50 pt-8">
+          {!!pendingApproval && !isStreamActive && (
+            <div className="flex gap-4 group mt-8 border-t border-borderGray/50 pt-8">
               <div className="flex-shrink-0 w-10 h-10 rounded-full bg-rausch text-pureWhite flex items-center justify-center shadow-card border-2 border-pureWhite mt-1 z-10">
                 <CheckCircle2 size={18} />
               </div>
