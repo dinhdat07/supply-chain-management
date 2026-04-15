@@ -70,6 +70,7 @@ function App() {
             actionLoading={actionLoading}
             onApprovalAction={applyApproval}
             onSelectAlternative={selectApprovalAlternative}
+            onStreamComplete={refresh}
           />
         );
       case "agent":

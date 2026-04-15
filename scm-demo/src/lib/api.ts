@@ -17,6 +17,7 @@ import type {
   RunStateResponse,
   ScenarioName,
   ServiceRuntimeResponse,
+  StreamTriggerResponse,
   SupplierListResponse,
   TraceResponse,
   WhatIfResponse,
@@ -186,4 +187,12 @@ export function completeExecution(executionId: string) {
       method: "POST",
     },
   );
+}
+
+/* ── Real-time thinking stream ───────────────────────────── */
+
+export function triggerStreamingPlan() {
+  return requestJson<StreamTriggerResponse>("/plan/daily/stream", {
+    method: "POST",
+  });
 }

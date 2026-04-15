@@ -554,3 +554,30 @@ export interface ServiceRuntimeResponse {
 
 export type ApprovalAction = 'approve' | 'reject' | 'safer_plan';
 export type ScenarioName = 'supplier_delay' | 'demand_spike' | 'route_blockage' | 'compound_disruption';
+
+/* ── Real-time thinking stream ───────────────────────────── */
+
+export type ThinkingEventType =
+  | 'start'
+  | 'analysis'
+  | 'thinking'
+  | 'observation'
+  | 'reflection'
+  | 'decision'
+  | 'action'
+  | 'final'
+  | 'error';
+
+export interface ThinkingEvent {
+  type: ThinkingEventType;
+  agent: string;
+  step: string;
+  message: string;
+  data: Record<string, unknown>;
+  sequence: number;
+}
+
+export interface StreamTriggerResponse {
+  run_id: string;
+  ws_url: string;
+}
