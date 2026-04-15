@@ -11,7 +11,6 @@ import type {
   ReflectionView,
   RunView,
   ScenarioName,
-  ServiceRuntimeView,
   TraceView,
   WhatIfResponse,
 } from "../lib/types";
@@ -27,7 +26,6 @@ import { ExecutionDashboard } from "./agent/ExecutionDashboard";
 import { ApprovalQueue } from "./agent/ApprovalQueue";
 import { EventFeedPanel } from "./agent/EventFeedPanel";
 import { ReflectionMemoryPanel } from "./agent/ReflectionMemoryPanel";
-import { ServiceHealthPanel } from "./agent/ServiceHealthPanel";
 
 // Shared Utils
 import { eventSummary, type StageStatus } from "./agent/AgentShared";
@@ -36,7 +34,6 @@ interface AgentProps {
   summary: ControlTowerSummaryResponse | null;
   events: EventView[];
   reflections: ReflectionView[];
-  serviceRuntime: ServiceRuntimeView | null;
   trace: TraceView | null;
   pendingApproval: PendingApprovalView | null;
   approvalDetail: ApprovalDetailView | null;
@@ -118,7 +115,6 @@ export function Agent({
   summary,
   events,
   reflections,
-  serviceRuntime,
   trace,
   pendingApproval,
   approvalDetail,
@@ -348,27 +344,26 @@ export function Agent({
               summary={summary}
             />
           ) : (
-            <div className="space-y-6">
-              <div className="rounded-[20px] border border-borderGray bg-pureWhite p-20 text-center shadow-card">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-lightSurface">
-                  <span className="text-[32px]">✨</span>
-                </div>
-                <h3 className="mt-6 text-[20px] font-bold text-nearBlack">
-                  Awaiting Operator Command
-                </h3>
-                <p className="mt-2 text-secondaryGray">
-                  Sync network state or generate a new logistics plan.
-                </p>
+            <div className="rounded-[20px] border border-borderGray bg-pureWhite p-20 text-center shadow-card">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-lightSurface">
+                <span className="text-[32px]">✨</span>
               </div>
-              <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.08fr_0.92fr]">
-                <EventFeedPanel events={events} currentEvent={currentEvent} />
-                <ServiceHealthPanel serviceRuntime={serviceRuntime} />
-              </div>
-              <ReflectionMemoryPanel
-                reflections={reflections}
-                description="Recent reflection notes recorded after completed runs so operators can see what the control tower retained."
-              />
+              <h3 className="mt-6 text-[20px] font-bold text-nearBlack">
+                Awaiting Operator Command
+              </h3>
+              <p className="mt-2 text-secondaryGray">
+                Sync network state or generate a new logistics plan.
+              </p>
             </div>
+          )}
+
+          <EventFeedPanel events={events} currentEvent={currentEvent} />
+          
+          {!selectedEvaluation && (
+            <ReflectionMemoryPanel
+              reflections={reflections}
+              description="Recent reflection notes recorded after completed runs so operators can see what the control tower retained."
+            />
           )}
 
           <div className="rounded-[24px] border border-borderGray bg-pureWhite p-6 shadow-card">

@@ -78,7 +78,6 @@ function App() {
             summary={summary}
             events={events}
             reflections={reflections}
-            serviceRuntime={serviceRuntime}
             trace={trace}
             pendingApproval={pendingApproval}
             approvalDetail={approvalDetail}
@@ -125,7 +124,7 @@ function App() {
   };
 
   return (
-    <Layout currentTab={currentTab} setTab={setCurrentTab}>
+    <Layout currentTab={currentTab} setTab={setCurrentTab} serviceRuntime={serviceRuntime}>
       {renderContent()}
       <GlobalScenarioWidget
         scenario={scenario}
