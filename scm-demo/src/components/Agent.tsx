@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type {
   ApprovalAction,
   ApprovalDetailView,
@@ -22,9 +22,7 @@ import { ControlTowerHeader } from "./agent/ControlTowerHeader";
 import { ActiveWorkSection } from "./agent/ActiveWorkSection";
 import { WorkflowSection, type WorkspaceView } from "./agent/WorkflowSection";
 import { OperationsConsole } from "./agent/OperationsConsole";
-import { AgentTimeline } from "./agent/AgentTimeline";
 import { ExecutionDashboard } from "./agent/ExecutionDashboard";
-import { ScenarioLab } from "./agent/ScenarioLab";
 import { ApprovalQueue } from "./agent/ApprovalQueue";
 import { EventFeedPanel } from "./agent/EventFeedPanel";
 import { ReflectionMemoryPanel } from "./agent/ReflectionMemoryPanel";
@@ -123,29 +121,22 @@ export function Agent({
   trace,
   pendingApproval,
   approvalDetail,
-  scenarioPreview,
   runHistory,
   selectedRun,
   selectedRunTrace,
   selectedRunState,
   selectedRunDecision,
   selectedRunExecution,
-  scenario,
   loading,
   refreshing,
   actionLoading,
   error,
-  onScenarioChange,
   onRefresh,
-  onPreviewScenario,
   onGenerateRecommendations,
-  onRunScenario,
   onApprovalAction,
   onSelectAlternative,
   onOpenRunLedger,
 }: AgentProps) {
-  const [visibleStepCount, setVisibleStepCount] = useState(0);
-  const [selectedStepIndex, setSelectedStepIndex] = useState(0);
   const [workspace, setWorkspace] = useState<WorkspaceView>("operations");
 
   void runHistory;
@@ -156,7 +147,6 @@ export function Agent({
   void selectedRunExecution;
 
   const steps = trace?.steps ?? [];
-  const displayedSteps = steps.slice(0, visibleStepCount);
   const selectedPlan =
     approvalDetail?.plan ??
     pendingApproval?.plan ??
@@ -176,44 +166,7 @@ export function Agent({
   const executionComplete =
     trace?.execution_status === "executed" ||
     trace?.execution_status === "completed";
-  const latestVisibleStepIndex = displayedSteps.length - 1;
   const activeWork = workingState(refreshing, actionLoading);
-
-  useEffect(() => {
-    if (!trace?.trace_id || steps.length === 0) {
-      const resetTimer = window.setTimeout(() => {
-        setVisibleStepCount(0);
-        setSelectedStepIndex(0);
-      }, 0);
-      return () => window.clearTimeout(resetTimer);
-    }
-
-    const startTimer = window.setTimeout(() => {
-      setVisibleStepCount(1);
-      setSelectedStepIndex(0);
-    }, 0);
-    let interval = 0;
-
-    const intervalStarter = window.setTimeout(() => {
-      interval = window.setInterval(() => {
-        setVisibleStepCount((current) => {
-          if (current >= steps.length) {
-            window.clearInterval(interval);
-            return current;
-          }
-          return current + 1;
-        });
-      }, 320);
-    }, 0);
-
-    return () => {
-      window.clearTimeout(startTimer);
-      window.clearTimeout(intervalStarter);
-      if (interval) {
-        window.clearInterval(interval);
-      }
-    };
-  }, [trace?.trace_id, steps.length]);
 
   const exceptionCount = summary?.alerts.length ?? 0;
   const recommendationState = pendingApproval
@@ -340,11 +293,6 @@ export function Agent({
           : "No plan",
     },
     {
-      key: "scenario" as WorkspaceView,
-      label: "Scenario lab",
-      detail: "Simulation only",
-    },
-    {
       key: "approval" as WorkspaceView,
       label: "Approval queue",
       detail: pendingApproval
@@ -354,7 +302,6 @@ export function Agent({
   ];
 
   const showOperations = workspace === "operations";
-  const showScenario = workspace === "scenario";
   const showApproval = workspace === "approval";
   const showExecution = workspace === "execution";
 
@@ -404,19 +351,6 @@ export function Agent({
             description="Recent reflection notes recorded after completed runs so operators can see what the control tower retained."
           />
 
-          <div className="mt-8">
-            <AgentTimeline
-              trace={trace}
-              displayedSteps={displayedSteps}
-              selectedStepIndex={selectedStepIndex}
-              latestVisibleStepIndex={latestVisibleStepIndex}
-              actionLoading={actionLoading}
-              refreshing={refreshing}
-              executionComplete={executionComplete}
-              onSelectStep={setSelectedStepIndex}
-            />
-          </div>
-
           <div className="rounded-[24px] border border-borderGray bg-pureWhite p-6 shadow-card">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
@@ -441,19 +375,6 @@ export function Agent({
             </div>
           </div>
         </>
-      ) : null}
-
-      {showScenario ? (
-        <ScenarioLab
-          summary={summary}
-          scenarioPreview={scenarioPreview}
-          scenario={scenario}
-          loading={loading}
-          actionLoading={actionLoading}
-          onScenarioChange={onScenarioChange}
-          onPreviewScenario={onPreviewScenario}
-          onRunScenario={onRunScenario}
-        />
       ) : null}
 
       {showExecution ? (

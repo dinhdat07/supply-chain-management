@@ -1,7 +1,7 @@
 import { humanizeStatus } from '../../lib/presenters';
 import { type StageStatus, stageTone } from './AgentShared';
 
-export type WorkspaceView = 'operations' | 'execution' | 'scenario' | 'approval';
+export type WorkspaceView = 'operations' | 'execution' | 'approval';
 
 interface WorkflowStage {
   key: string;

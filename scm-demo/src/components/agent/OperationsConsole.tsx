@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   ArrowRight,
@@ -5,6 +6,7 @@ import {
   LoaderCircle,
   RefreshCcw,
   Sparkles,
+  X,
 } from "lucide-react";
 import type {
   CandidateEvaluationView,
@@ -57,10 +59,65 @@ export function OperationsConsole({
   onRefresh,
   onGenerateRecommendations,
 }: OperationsConsoleProps) {
+  const [showExceptionsModal, setShowExceptionsModal] = useState(false);
+  const [roadmapExpanded, setRoadmapExpanded] = useState(false);
+  const [exceptionFilter, setExceptionFilter] = useState<"all" | "critical">(
+    "all",
+  );
+  const [exceptionQuery, setExceptionQuery] = useState("");
+
   const selectedPlan = trace?.latest_plan ?? summary?.latest_plan ?? null;
+  const alerts = summary?.alerts ?? [];
+  const criticalAlerts = useMemo(
+    () => alerts.filter((alert) => severityTone(alert.level) === "critical"),
+    [alerts],
+  );
+  const filteredAlerts = useMemo(() => {
+    const source = exceptionFilter === "critical" ? criticalAlerts : alerts;
+    const query = exceptionQuery.trim().toLowerCase();
+    if (!query) return source;
+    return source.filter((alert) => {
+      const haystack = [
+        alert.title,
+        alert.message,
+        alert.source,
+        ...(alert.entity_ids ?? []),
+      ]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [alerts, criticalAlerts, exceptionFilter, exceptionQuery]);
+
+  const totalActions = selectedPlan?.actions.length ?? 0;
+  const compactActionCount = 8;
+  const visibleActions =
+    selectedPlan && !roadmapExpanded && totalActions > compactActionCount
+      ? selectedPlan.actions.slice(0, compactActionCount)
+      : (selectedPlan?.actions ?? []);
+
   const alternatives = candidatePlans.filter(
     (item) => item.strategy_label !== selectedEvaluation?.strategy_label,
   );
+
+  useEffect(() => {
+    if (!showExceptionsModal) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setShowExceptionsModal(false);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [showExceptionsModal]);
+
+  useEffect(() => {
+    if (!showExceptionsModal) return;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [showExceptionsModal]);
 
   return (
     <section className="space-y-5">
@@ -151,57 +208,33 @@ export function OperationsConsole({
       </div>
 
       {/* ── Row 3: Metrics + Exceptions ── */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1fr_1fr_auto]">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {workQueue.map((item) => (
           <div
             key={item.title}
-            className="rounded-[18px] border border-borderGray bg-pureWhite px-5 py-4 shadow-sm"
+            className="rounded-[18px] border border-borderGray bg-pureWhite px-5 py-4 shadow-sm flex flex-col justify-between"
           >
-            <div className="text-[10px] font-bold uppercase tracking-widest text-secondaryGray">
-              {item.title}
-            </div>
-            <div className="mt-1 text-[17px] font-bold text-nearBlack">
-              {item.value}
-            </div>
-            <p className="mt-0.5 text-[12px] leading-snug text-secondaryGray">
-              {item.detail}
-            </p>
-          </div>
-        ))}
-        <div className="min-w-[220px] rounded-[18px] border border-borderGray bg-pureWhite px-5 py-4 shadow-sm">
-          <div className="text-[10px] font-bold uppercase tracking-widest text-secondaryGray">
-            Exception Queue
-          </div>
-          <div className="mt-2 space-y-2">
-            {summary?.alerts.length ? (
-              summary.alerts.slice(0, 2).map((alert) => (
-                <div
-                  key={`${alert.source}-${alert.title}`}
-                  className={`rounded-[10px] border px-3 py-2 ${severityTone(alert.level) === "critical" ? "border-errorRed/20 bg-errorRed/5" : "border-borderGray bg-lightSurface"}`}
-                >
-                  <div className="flex items-start gap-2">
-                    <AlertCircle
-                      className={`mt-0.5 shrink-0 ${severityTone(alert.level) === "critical" ? "text-errorRed" : "text-secondaryGray"}`}
-                      size={12}
-                    />
-                    <div className="min-w-0">
-                      <div className="truncate text-[12px] font-bold text-nearBlack leading-tight">
-                        {alert.title}
-                      </div>
-                      <p className="truncate text-[11px] text-secondaryGray">
-                        {alert.message}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="flex items-center gap-2 rounded-[10px] border border-green-200 bg-green-50 px-3 py-2.5 text-[12px] font-medium text-green-700">
-                <CheckCircle2 size={13} /> No exceptions
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-widest text-secondaryGray">
+                {item.title}
               </div>
+              <div className="mt-1 text-[17px] font-bold text-nearBlack">
+                {item.value}
+              </div>
+              <p className="mt-0.5 text-[12px] leading-snug text-secondaryGray">
+                {item.detail}
+              </p>
+            </div>
+            {item.title === "Exceptions" && summary && alerts.length > 0 && (
+              <button
+                onClick={() => setShowExceptionsModal(true)}
+                className="mt-3 text-left text-[11px] font-bold text-rausch hover:underline w-fit"
+              >
+                View {alerts.length} exception{alerts.length > 1 ? "s" : ""} →
+              </button>
             )}
           </div>
-        </div>
+        ))}
       </div>
 
       {/* ── Row 4: Plan Main Panel ── */}
@@ -304,10 +337,21 @@ export function OperationsConsole({
                       {selectedPlan.actions.length} ACTIONS
                     </span>
                   </div>
+                  {selectedPlan.actions.length > compactActionCount ? (
+                    <button
+                      type="button"
+                      onClick={() => setRoadmapExpanded((value) => !value)}
+                      className="rounded-full border border-borderGray bg-lightSurface px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-secondaryGray transition-colors hover:border-rausch/40 hover:text-nearBlack"
+                    >
+                      {roadmapExpanded
+                        ? `Show key ${compactActionCount}`
+                        : `Show all ${selectedPlan.actions.length}`}
+                    </button>
+                  ) : null}
                 </div>
 
-                <div className="divide-y divide-borderGray/20">
-                  {selectedPlan.actions.map((action, idx) => (
+                <div className="divide-y divide-borderGray/20 max-h-[500px] overflow-y-auto custom-scrollbar">
+                  {visibleActions.map((action, idx) => (
                     <div
                       key={action.action_id}
                       className="p-6 transition-colors hover:bg-lightSurface/20"
@@ -404,6 +448,11 @@ export function OperationsConsole({
                     </div>
                   ))}
                 </div>
+                {selectedPlan.actions.length > compactActionCount && !roadmapExpanded ? (
+                  <div className="border-t border-borderGray/20 bg-lightSurface/40 px-6 py-3 text-[12px] text-secondaryGray">
+                    Showing top {compactActionCount} actions ranked by planner priority.
+                  </div>
+                ) : null}
               </div>
             </div>
 
@@ -722,6 +771,123 @@ export function OperationsConsole({
           <p className="mt-2 text-secondaryGray">
             Sync network state or generate a new logistics plan.
           </p>
+        </div>
+      )}
+
+      {/* ── Exception Queue Modal ── */}
+      {showExceptionsModal && summary && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-nearBlack/40 backdrop-blur-sm p-4">
+          <div className="w-full max-w-2xl rounded-[24px] bg-pureWhite shadow-card flex flex-col max-h-[85vh]">
+            <div className="flex items-center justify-between border-b border-borderGray/50 px-6 py-5 shrink-0">
+              <div>
+                <h3 className="text-[20px] font-black text-nearBlack tracking-tight">
+                  Exception Queue
+                </h3>
+                <p className="text-[13px] text-secondaryGray mt-1">
+                  {alerts.length} active signals requiring attention.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowExceptionsModal(false)}
+                className="rounded-full p-2 text-secondaryGray hover:bg-lightSurface hover:text-nearBlack transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="border-b border-borderGray/50 bg-pureWhite px-6 py-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="inline-flex rounded-full border border-borderGray bg-lightSurface p-1 text-[11px] font-bold uppercase tracking-wider text-secondaryGray">
+                  <button
+                    type="button"
+                    onClick={() => setExceptionFilter("all")}
+                    className={`rounded-full px-3 py-1 transition-colors ${exceptionFilter === "all" ? "bg-pureWhite text-nearBlack shadow-sm" : "text-secondaryGray hover:text-nearBlack"}`}
+                  >
+                    All ({alerts.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setExceptionFilter("critical")}
+                    className={`rounded-full px-3 py-1 transition-colors ${exceptionFilter === "critical" ? "bg-pureWhite text-nearBlack shadow-sm" : "text-secondaryGray hover:text-nearBlack"}`}
+                  >
+                    Critical ({criticalAlerts.length})
+                  </button>
+                </div>
+                <input
+                  value={exceptionQuery}
+                  onChange={(event) => setExceptionQuery(event.target.value)}
+                  placeholder="Search exception, source, entity..."
+                  className="w-full rounded border border-borderGray bg-lightSurface px-3 py-2 text-[12px] text-nearBlack outline-none transition-colors placeholder:text-secondaryGray focus:border-rausch sm:max-w-[300px]"
+                />
+              </div>
+            </div>
+
+            <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-3 bg-lightSurface/30">
+              {filteredAlerts.length ? filteredAlerts.map((alert, idx) => (
+                <div
+                  key={`${alert.source}-${alert.title}-${idx}`}
+                  className={`rounded-[16px] border p-4 shadow-sm ${
+                    severityTone(alert.level) === "critical"
+                      ? "border-errorRed/20 bg-errorRed/5"
+                      : "border-borderGray bg-pureWhite"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <AlertCircle
+                      className={`mt-0.5 shrink-0 ${
+                        severityTone(alert.level) === "critical"
+                          ? "text-errorRed"
+                          : "text-secondaryGray"
+                      }`}
+                      size={18}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="text-[15px] font-bold text-nearBlack leading-tight">
+                          {alert.title}
+                        </div>
+                        <span className={`text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded ${
+                          severityTone(alert.level) === "critical"
+                            ? "bg-errorRed/10 text-errorRed"
+                            : "bg-lightSurface text-secondaryGray"
+                        }`}>
+                          {alert.level}
+                        </span>
+                      </div>
+                      <p className="mt-1.5 text-[13px] text-secondaryGray leading-relaxed">
+                        {alert.message}
+                      </p>
+                      {alert.entity_ids && alert.entity_ids.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {alert.entity_ids.map((id) => (
+                            <span key={id} className="rounded border border-borderGray bg-pureWhite px-1.5 py-0.5 text-[10px] font-bold text-secondaryGray">
+                              {id}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )) : (
+                <div className="rounded-[16px] border border-borderGray bg-pureWhite p-5 text-center">
+                  <div className="text-[13px] font-bold text-nearBlack">No matching exceptions</div>
+                  <p className="mt-1 text-[12px] text-secondaryGray">
+                    Try another keyword or switch back to all alerts.
+                  </p>
+                </div>
+              )}
+            </div>
+            
+            <div className="border-t border-borderGray/50 bg-pureWhite px-6 py-4 shrink-0 flex justify-end">
+              <button
+                onClick={() => setShowExceptionsModal(false)}
+                className="rounded-card bg-nearBlack px-6 py-2.5 text-[13px] font-bold text-pureWhite transition-all hover:bg-nearBlack/90 shadow-sm"
+              >
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </section>
