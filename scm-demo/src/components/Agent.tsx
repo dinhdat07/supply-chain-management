@@ -345,6 +345,7 @@ export function Agent({
               baselineKpis={approvalDetail?.before_kpis ?? pendingApproval?.before_kpis ?? summary?.kpis ?? null}
               reflections={reflections}
               summary={summary}
+              onExecutePlan={() => setWorkspace("execution")}
             />
           ) : (
             <div className="rounded-[20px] border border-borderGray bg-pureWhite p-20 text-center shadow-card">

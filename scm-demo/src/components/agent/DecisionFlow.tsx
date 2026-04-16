@@ -41,6 +41,7 @@ interface DecisionFlowProps {
   baselineKpis: KPIView | null;
   reflections: ReflectionView[];
   summary: ControlTowerSummaryResponse | null;
+  onExecutePlan?: () => void;
 }
 
 function splitSentences(value: string | null | undefined, limit: number): string[] {
@@ -176,6 +177,7 @@ export function DecisionFlow({
   baselineKpis,
   reflections,
   summary,
+  onExecutePlan,
 }: DecisionFlowProps) {
   const alternatives = useMemo(
     () =>
@@ -296,7 +298,10 @@ export function DecisionFlow({
                   </p>
                 </div>
 
-                <button className="flex w-full items-center justify-center gap-2 rounded bg-rausch px-6 py-3 text-[14px] font-bold text-pureWhite shadow-md transition-all hover:bg-rausch/90">
+                <button
+                  onClick={onExecutePlan}
+                  className="flex w-full items-center justify-center gap-2 rounded bg-rausch px-6 py-3 text-[14px] font-bold text-pureWhite shadow-md transition-all hover:bg-rausch/90"
+                >
                   <Zap size={16} /> Execute Recommended Plan
                 </button>
               </div>
@@ -536,7 +541,7 @@ export function DecisionFlow({
         </div>
 
         <div
-          className={`grid grid-cols-1 gap-5 ${
+          className={`grid grid-cols-1 items-start gap-5 ${
             combinedRisks.length > 0 ? "xl:grid-cols-[1.85fr_1fr]" : ""
           }`}
         >
@@ -648,7 +653,7 @@ export function DecisionFlow({
                 </div>
               </div>
 
-              <div className="max-h-[420px] space-y-2 overflow-y-auto p-3 custom-scrollbar">
+              <div className="max-h-[420px] overflow-y-auto custom-scrollbar flex flex-col divide-y divide-borderGray/30">
                 {(["Critical", "Warning", "Info"] as const).map((severity) => {
                   const items = groupedRisks[severity];
                   if (items.length === 0) return null;
@@ -669,13 +674,12 @@ export function DecisionFlow({
                   );
 
                   return (
-                    <div
-                      key={severity}
-                      className="overflow-hidden rounded-card border border-borderGray bg-pureWhite shadow-sm"
-                    >
+                    <div key={severity} className="flex flex-col bg-pureWhite">
                       <button
                         onClick={() => toggleAlertGroup(severity.toLowerCase())}
-                        className={`flex w-full items-center justify-between border-b px-3 py-3 transition-colors hover:opacity-90 ${headerColor}`}
+                        className={`flex w-full items-center justify-between px-4 py-3 transition-colors hover:opacity-90 ${headerColor} ${
+                          expandedAlerts[severity.toLowerCase()] ? "border-b" : ""
+                        }`}
                       >
                         <div className="flex items-center gap-2 text-[12px] font-bold uppercase tracking-wide">
                           {icon} {severity} ({items.length})
@@ -692,16 +696,16 @@ export function DecisionFlow({
                           {items.map((item) => (
                             <div
                               key={item.id}
-                              className="flex items-start gap-3 px-3 py-3"
+                              className="flex items-start gap-4 px-4 py-3.5 transition-colors hover:bg-lightSurface/20"
                             >
-                              <span className="shrink-0 rounded bg-lightSurface px-2 py-1 text-[10px] font-bold uppercase text-secondaryGray">
+                              <span className="shrink-0 rounded bg-lightSurface/80 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-secondaryGray">
                                 {item.category}
                               </span>
                               <div className="min-w-0">
-                                <div className="text-[12px] font-bold text-nearBlack">
+                                <div className="text-[13px] font-bold text-nearBlack">
                                   {riskRowLabel(item)}
                                 </div>
-                                <div className="mt-1 text-[12px] leading-5 text-secondaryGray">
+                                <div className="mt-1 text-[13px] leading-5 text-secondaryGray">
                                   {item.message}
                                 </div>
                               </div>
