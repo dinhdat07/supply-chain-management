@@ -19,8 +19,12 @@ import type {
   TraceView,
 } from "../../lib/types";
 import {
+  describeActionTarget,
+  describeActionTitle,
   formatCurrency,
   formatPercent,
+  humanizeAction,
+  humanizeLabel,
   humanizeStrategy,
 } from "../../lib/presenters";
 import {
@@ -85,6 +89,29 @@ function metricDelta(
       {formatter(delta)}
     </span>
   );
+}
+
+function actionTypeCounts(plan: PlanView): Array<{ type: string; count: number }> {
+  const counts = new Map<string, number>();
+  for (const action of plan.actions) {
+    counts.set(action.action_type, (counts.get(action.action_type) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .map(([type, count]) => ({ type, count }))
+    .sort((left, right) => right.count - left.count);
+}
+
+function actionImpactLabel(serviceDelta: number, riskDelta: number): string {
+  if (serviceDelta > 0.04) return "High";
+  if (serviceDelta > 0.01 || riskDelta < 0) return "Moderate";
+  return "Targeted";
+}
+
+function riskRowLabel(item: { type: string; category: string; message: string }): string {
+  if (item.type === "Constraint") {
+    return `${item.category} constraint`;
+  }
+  return `${humanizeLabel(item.category)} signal`;
 }
 
 function AlternativeSummaryCard({
@@ -213,6 +240,9 @@ export function DecisionFlow({
 
   const plannerDetail =
     trace?.selection_reason ?? plan.llm_planner_narrative ?? plan.planner_reasoning;
+  const actionMix = actionTypeCounts(plan);
+  const sortedAllActions = [...plan.actions].sort((left, right) => right.priority - left.priority);
+  const referencedCases = plan.metadata?.referenced_cases ?? [];
 
   return (
     <div className="space-y-8 pb-12">
@@ -495,244 +525,294 @@ export function DecisionFlow({
         </div>
       </section>
 
-      <div
-        className={`grid grid-cols-1 gap-8 ${
-          combinedRisks.length > 0 ? "lg:grid-cols-[1.4fr_1fr]" : ""
-        }`}
-      >
-        <section className="flex flex-col space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-[2px] border-nearBlack text-[14px] font-black text-nearBlack">
-              3
-            </div>
-            <h2 className="text-[20px] font-black tracking-tight text-nearBlack">
-              Planned Roadmap
-            </h2>
-            <span className="rounded-badge bg-nearBlack px-2.5 py-0.5 text-[11px] font-bold text-pureWhite">
-              {plan.actions.length} actions
-            </span>
+      <section className="space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full border-[2px] border-nearBlack text-[14px] font-black text-nearBlack">
+            3
           </div>
+          <h2 className="text-[20px] font-black tracking-tight text-nearBlack">
+            Execution Plan & Risks
+          </h2>
+        </div>
 
-          <div className="flex max-h-[380px] flex-col overflow-hidden rounded-card border border-borderGray bg-pureWhite shadow-sm">
-            <div className="divide-y divide-borderGray/30 overflow-y-auto custom-scrollbar">
-              {[...plan.actions]
-                .sort((left, right) => right.priority - left.priority)
-                .map((action, index) => (
-                  <div
-                    key={action.action_id}
-                    className="flex flex-wrap items-center gap-6 p-5 transition-colors hover:bg-lightSurface/20 lg:flex-nowrap"
+        <div
+          className={`grid grid-cols-1 gap-5 ${
+            combinedRisks.length > 0 ? "xl:grid-cols-[1.85fr_1fr]" : ""
+          }`}
+        >
+          <div className="overflow-hidden rounded-card border border-borderGray bg-pureWhite shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-borderGray/30 bg-lightSurface/40 px-4 py-3">
+              <div>
+                <div className="text-[11px] font-black uppercase tracking-widest text-secondaryGray">
+                  Planned Roadmap
+                </div>
+                <div className="mt-1 text-[14px] font-bold text-nearBlack">
+                  {plan.actions.length} actions prepared for execution
+                </div>
+              </div>
+            </div>
+
+            <div className="border-b border-borderGray/30 px-4 py-3">
+              <div className="flex flex-wrap gap-2">
+                <span className="rounded-full bg-lightSurface px-3 py-1 text-[11px] font-bold text-nearBlack">
+                  Total {plan.actions.length}
+                </span>
+                {actionMix.map((item) => (
+                  <span
+                    key={`mix-${item.type}`}
+                    className="rounded-full border border-borderGray bg-pureWhite px-3 py-1 text-[11px] font-bold text-secondaryGray"
                   >
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-borderGray bg-lightSurface text-[14px] font-black text-nearBlack">
-                      {index + 1}
-                    </div>
+                    {humanizeAction(item.type)} x{item.count}
+                  </span>
+                ))}
+              </div>
+            </div>
 
-                    <div className="min-w-[250px] flex-1">
-                      <div className="mb-1 flex items-center gap-2">
-                        <span className="rounded bg-rausch/10 px-2 py-0.5 text-[10px] font-black uppercase text-rausch">
-                          {action.action_type}
-                        </span>
-                        <h5 className="text-[16px] font-bold text-nearBlack">
-                          {action.target_id}
-                        </h5>
-                      </div>
-                      <p className="text-[13px] text-secondaryGray">
-                        {action.reason}
-                      </p>
-                    </div>
+            <div className="max-h-[420px] divide-y divide-borderGray/30 overflow-y-auto custom-scrollbar">
+              {sortedAllActions.map((action, index) => (
+                <div
+                  key={action.action_id}
+                  className="flex flex-wrap items-center gap-4 px-4 py-3 transition-colors hover:bg-lightSurface/20 lg:flex-nowrap"
+                >
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-borderGray bg-lightSurface text-[12px] font-black text-nearBlack">
+                    {index + 1}
+                  </div>
 
-                    <div className="flex shrink-0 items-center gap-6">
-                      <div className="text-right">
-                        <div className="text-[10px] font-bold uppercase tracking-widest text-secondaryGray">
-                          Impact
-                        </div>
-                        <div
-                          className={`text-[14px] font-bold ${
-                            action.estimated_service_delta > 0
-                              ? "text-green-700"
-                              : "text-nearBlack"
-                          }`}
-                        >
-                          {action.estimated_service_delta > 0
-                            ? `+${(action.estimated_service_delta * 100).toFixed(1)}%`
-                            : "Moderate"}
-                        </div>
+                  <div className="min-w-[220px] flex-1">
+                    <div className="mb-1 flex items-center gap-2">
+                      <span className="rounded bg-rausch/10 px-2 py-0.5 text-[10px] font-black uppercase text-rausch">
+                        {humanizeAction(action.action_type)}
+                      </span>
+                      <h5 className="text-[14px] font-bold text-nearBlack">
+                        {describeActionTitle(action.action_type, action.target_id)}
+                      </h5>
+                    </div>
+                    <div className="text-[11px] text-secondaryGray">
+                      {describeActionTarget(action.action_type, action.target_id)}
+                    </div>
+                    <p className="mt-1 text-[12px] leading-5 text-secondaryGray">
+                      {action.reason}
+                    </p>
+                  </div>
+
+                  <div className="flex shrink-0 items-center gap-4">
+                    <div className="text-right">
+                      <div className="text-[10px] font-bold uppercase tracking-widest text-secondaryGray">
+                        Impact
                       </div>
-                      <div className="w-[80px] text-right">
-                        <div className="text-[10px] font-bold uppercase tracking-widest text-secondaryGray">
-                          Cost
-                        </div>
-                        <div
-                          className={`text-[14px] font-bold ${
-                            action.estimated_cost_delta > 0
-                              ? "text-rausch"
-                              : "text-nearBlack"
-                          }`}
-                        >
-                          {action.estimated_cost_delta > 0
-                            ? `+$${action.estimated_cost_delta.toLocaleString()}`
-                            : "Minimal"}
-                        </div>
+                      <div
+                        className={`text-[12px] font-bold ${
+                          action.estimated_service_delta > 0
+                            ? "text-green-700"
+                            : "text-nearBlack"
+                        }`}
+                      >
+                        {action.estimated_service_delta > 0
+                          ? `+${(action.estimated_service_delta * 100).toFixed(1)}%`
+                          : actionImpactLabel(
+                              action.estimated_service_delta,
+                              action.estimated_risk_delta,
+                            )}
+                      </div>
+                    </div>
+                    <div className="w-[84px] text-right">
+                      <div className="text-[10px] font-bold uppercase tracking-widest text-secondaryGray">
+                        Cost
+                      </div>
+                      <div
+                        className={`text-[12px] font-bold ${
+                          action.estimated_cost_delta > 0
+                            ? "text-rausch"
+                            : "text-nearBlack"
+                        }`}
+                      >
+                        {action.estimated_cost_delta > 0
+                          ? `+$${action.estimated_cost_delta.toLocaleString()}`
+                          : "Minimal"}
                       </div>
                     </div>
                   </div>
-                ))}
+                </div>
+              ))}
             </div>
           </div>
-        </section>
 
-        {combinedRisks.length > 0 ? (
-          <section className="flex flex-col space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-[2px] border-nearBlack text-[14px] font-black text-nearBlack">
-                4
+          {combinedRisks.length > 0 ? (
+            <div className="overflow-hidden rounded-card border border-borderGray bg-pureWhite shadow-sm">
+              <div className="border-b border-borderGray/30 bg-lightSurface/40 px-4 py-3">
+                <div className="text-[11px] font-black uppercase tracking-widest text-secondaryGray">
+                  Risks & Constraints
+                </div>
+                <div className="mt-1 text-[14px] font-bold text-nearBlack">
+                  Active constraints that still affect execution
+                </div>
               </div>
-              <h2 className="text-[20px] font-black tracking-tight text-nearBlack">
-                Risks & Constraints
-              </h2>
-            </div>
 
-            <div className="max-h-[400px] space-y-3 overflow-y-auto pr-2 custom-scrollbar">
-              {(["Critical", "Warning", "Info"] as const).map((severity) => {
-                const items = groupedRisks[severity];
-                if (items.length === 0) return null;
+              <div className="max-h-[420px] space-y-2 overflow-y-auto p-3 custom-scrollbar">
+                {(["Critical", "Warning", "Info"] as const).map((severity) => {
+                  const items = groupedRisks[severity];
+                  if (items.length === 0) return null;
 
-                const isCritical = severity === "Critical";
-                const isWarning = severity === "Warning";
-                const headerColor = isCritical
-                  ? "text-errorRed bg-errorRed/10 border-errorRed/20"
-                  : isWarning
-                    ? "text-amber-800 bg-amber-100 border-amber-200"
-                    : "text-blue-800 bg-blue-50 border-blue-200";
-                const icon = isCritical ? (
-                  <AlertTriangle size={16} />
-                ) : isWarning ? (
-                  <AlertTriangle size={16} />
-                ) : (
-                  <Info size={16} />
-                );
+                  const isCritical = severity === "Critical";
+                  const isWarning = severity === "Warning";
+                  const headerColor = isCritical
+                    ? "text-errorRed bg-errorRed/10 border-errorRed/20"
+                    : isWarning
+                      ? "text-amber-800 bg-amber-100 border-amber-200"
+                      : "text-blue-800 bg-blue-50 border-blue-200";
+                  const icon = isCritical ? (
+                    <AlertTriangle size={15} />
+                  ) : isWarning ? (
+                    <AlertTriangle size={15} />
+                  ) : (
+                    <Info size={15} />
+                  );
 
-                return (
-                  <div
-                    key={severity}
-                    className="shrink-0 overflow-hidden rounded-card border border-borderGray bg-pureWhite shadow-sm"
-                  >
-                    <button
-                      onClick={() => toggleAlertGroup(severity.toLowerCase())}
-                      className={`flex w-full items-center justify-between border-b p-4 transition-colors hover:opacity-90 ${headerColor}`}
+                  return (
+                    <div
+                      key={severity}
+                      className="overflow-hidden rounded-card border border-borderGray bg-pureWhite shadow-sm"
                     >
-                      <div className="flex items-center gap-2 text-[14px] font-bold uppercase tracking-wide">
-                        {icon} {severity} ({items.length})
-                      </div>
-                      {expandedAlerts[severity.toLowerCase()] ? (
-                        <ChevronUp size={16} />
-                      ) : (
-                        <ChevronDown size={16} />
-                      )}
-                    </button>
+                      <button
+                        onClick={() => toggleAlertGroup(severity.toLowerCase())}
+                        className={`flex w-full items-center justify-between border-b px-3 py-3 transition-colors hover:opacity-90 ${headerColor}`}
+                      >
+                        <div className="flex items-center gap-2 text-[12px] font-bold uppercase tracking-wide">
+                          {icon} {severity} ({items.length})
+                        </div>
+                        {expandedAlerts[severity.toLowerCase()] ? (
+                          <ChevronUp size={15} />
+                        ) : (
+                          <ChevronDown size={15} />
+                        )}
+                      </button>
 
-                    {expandedAlerts[severity.toLowerCase()] ? (
-                      <div className="divide-y divide-borderGray/30">
-                        {items.map((item) => (
-                          <div
-                            key={item.id}
-                            className="flex items-start gap-4 p-4"
-                          >
-                            <span className="shrink-0 rounded bg-lightSurface px-2 py-1 text-[10px] font-bold uppercase text-secondaryGray">
-                              {item.category}
-                            </span>
-                            <div>
-                              <div className="text-[14px] font-bold text-nearBlack">
-                                {item.type}
-                              </div>
-                              <div className="mt-0.5 text-[13px] text-secondaryGray">
-                                {item.message}
+                      {expandedAlerts[severity.toLowerCase()] ? (
+                        <div className="divide-y divide-borderGray/30">
+                          {items.map((item) => (
+                            <div
+                              key={item.id}
+                              className="flex items-start gap-3 px-3 py-3"
+                            >
+                              <span className="shrink-0 rounded bg-lightSurface px-2 py-1 text-[10px] font-bold uppercase text-secondaryGray">
+                                {item.category}
+                              </span>
+                              <div className="min-w-0">
+                                <div className="text-[12px] font-bold text-nearBlack">
+                                  {riskRowLabel(item)}
+                                </div>
+                                <div className="mt-1 text-[12px] leading-5 text-secondaryGray">
+                                  {item.message}
+                                </div>
                               </div>
                             </div>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </section>
+
+      <section className="space-y-4 pt-2">
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full border-[2px] border-nearBlack text-[14px] font-black text-nearBlack">
+            4
+          </div>
+          <h2 className="text-[20px] font-black tracking-tight text-nearBlack">
+            Decision Intelligence
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+          <div className="rounded-card border border-borderGray bg-pureWhite p-4 shadow-sm">
+            <div className="mb-3">
+              <div className="text-[11px] font-black uppercase tracking-widest text-secondaryGray">
+                Historical Context
+              </div>
+              <div className="mt-1 text-[14px] font-bold text-nearBlack">
+                Similar past cases that informed the current decision
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {referencedCases.length > 0 ? (
+                <>
+                  {referencedCases.map((reference) => (
+                    <div
+                      key={reference.case_id}
+                      className="rounded-lg border border-borderGray/60 p-3"
+                    >
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-nearBlack">
+                          {reference.case_id}
+                        </span>
+                        <span className="rounded-badge bg-nearBlack px-2 py-0.5 text-[10px] font-bold text-pureWhite">
+                          {(reference.similarity_score * 100).toFixed(0)}% match
+                        </span>
+                      </div>
+                      <div className="text-[10px] uppercase tracking-wider text-secondaryGray">
+                        Case lesson
+                      </div>
+                      <p className="mt-2 border-l-2 border-borderGray pl-2 py-1 text-[12px] italic leading-6 text-secondaryGray">
+                        "{reference.reflection_notes}"
+                      </p>
+                    </div>
+                  ))}
+                </>
+              ) : (
+                <div className="py-4 text-center text-[13px] italic text-secondaryGray">
+                  No historical cases referenced.
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-card border border-borderGray bg-pureWhite p-4 shadow-sm">
+            <div className="mb-3">
+              <div className="text-[11px] font-black uppercase tracking-widest text-secondaryGray">
+                Reflection Memory
+              </div>
+              <div className="mt-1 text-[14px] font-bold text-nearBlack">
+                Lessons applied to the current plan
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {reflections.slice(0, 3).map((reflection, index) => (
+                <div
+                  key={`${reflection.note_id}-${index}`}
+                  className="border-b border-borderGray/30 pb-3 last:border-0 last:pb-0"
+                >
+                  <div className="flex items-start gap-3">
+                    <History size={14} className="mt-0.5 shrink-0 text-rausch" />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[13px] font-bold text-nearBlack">
+                        {reflection.summary}
+                      </div>
+                      <div className="mt-2 max-h-[220px] space-y-1 overflow-y-auto pr-1 text-[12px] text-secondaryGray custom-scrollbar">
+                        {reflection.lessons.map((lesson, lessonIndex) => (
+                          <div
+                            key={`${reflection.note_id}-lesson-${lessonIndex}`}
+                            className="flex items-start gap-2"
+                          >
+                            <span className="mt-[2px] text-rausch">•</span>
+                            <span>{lesson}</span>
                           </div>
                         ))}
                       </div>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        ) : null}
-      </div>
-
-      <div className="grid grid-cols-1 gap-8 pt-4 lg:grid-cols-2">
-        <section className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full border-[2px] border-nearBlack text-[14px] font-black text-nearBlack">
-              5
-            </div>
-            <h2 className="text-[18px] font-black tracking-tight text-nearBlack">
-              Historical Context
-            </h2>
-          </div>
-
-          <div className="space-y-4 rounded-card border border-borderGray bg-pureWhite p-5 shadow-sm">
-            {plan.metadata?.referenced_cases &&
-            plan.metadata.referenced_cases.length > 0 ? (
-              plan.metadata.referenced_cases.map((reference) => (
-                <div
-                  key={reference.case_id}
-                  className="rounded-lg border border-borderGray/60 p-4"
-                >
-                  <div className="mb-2 flex items-center justify-between">
-                    <span className="font-mono text-[11px] font-bold text-nearBlack">
-                      {reference.case_id}
-                    </span>
-                    <span className="rounded-badge bg-nearBlack px-2 py-0.5 text-[10px] font-bold text-pureWhite">
-                      {(reference.similarity_score * 100).toFixed(0)}% match
-                    </span>
-                  </div>
-                  <p className="border-l-2 border-borderGray pl-2 py-1 text-[12px] italic text-secondaryGray">
-                    "{reference.reflection_notes}"
-                  </p>
-                </div>
-              ))
-            ) : (
-              <div className="py-4 text-center text-[13px] italic text-secondaryGray">
-                No historical cases referenced.
-              </div>
-            )}
-          </div>
-        </section>
-
-        <section className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full border-[2px] border-nearBlack text-[14px] font-black text-nearBlack">
-              6
-            </div>
-            <h2 className="text-[18px] font-black tracking-tight text-nearBlack">
-              Reflection Memory
-            </h2>
-          </div>
-
-          <div className="space-y-3 rounded-card border border-borderGray bg-pureWhite p-5 shadow-sm">
-            <div className="mb-2 text-[12px] text-secondaryGray">
-              Lessons applied to the current plan:
-            </div>
-            {reflections.slice(0, 3).map((reflection, index) => (
-              <div
-                key={`${reflection.note_id}-${index}`}
-                className="flex items-start gap-3 border-b border-borderGray/30 pb-3 last:border-0 last:pb-0"
-              >
-                <History size={14} className="mt-0.5 shrink-0 text-rausch" />
-                <div>
-                  <div className="text-[13px] font-bold text-nearBlack">
-                    {reflection.summary}
-                  </div>
-                  <div className="mt-0.5 text-[12px] text-secondaryGray">
-                    {reflection.lessons.join(" • ")}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </section>
-      </div>
+        </div>
+      </section>
     </div>
   );
 }
