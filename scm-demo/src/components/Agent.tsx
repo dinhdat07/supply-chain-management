@@ -345,7 +345,15 @@ export function Agent({
               baselineKpis={approvalDetail?.before_kpis ?? pendingApproval?.before_kpis ?? summary?.kpis ?? null}
               reflections={reflections}
               summary={summary}
-              onExecutePlan={() => setWorkspace("execution")}
+              actionLoading={actionLoading}
+              onExecutePlan={async () => {
+                const decisionId = trace?.decision_id ?? approvalDetail?.decision_id ?? pendingApproval?.decision_id;
+                const needsApproval = selectedPlan!.approval_required && !selectedPlan!.approval_status?.startsWith("approved");
+                if (needsApproval && decisionId) {
+                  await onApprovalAction("approve", decisionId);
+                }
+                setWorkspace("execution");
+              }}
             />
           ) : (
             <div className="rounded-[20px] border border-borderGray bg-pureWhite p-20 text-center shadow-card">

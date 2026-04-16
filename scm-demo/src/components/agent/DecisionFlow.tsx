@@ -41,7 +41,8 @@ interface DecisionFlowProps {
   baselineKpis: KPIView | null;
   reflections: ReflectionView[];
   summary: ControlTowerSummaryResponse | null;
-  onExecutePlan?: () => void;
+  actionLoading?: string | null;
+  onExecutePlan?: () => void | Promise<void>;
 }
 
 function splitSentences(value: string | null | undefined, limit: number): string[] {
@@ -177,6 +178,7 @@ export function DecisionFlow({
   baselineKpis,
   reflections,
   summary,
+  actionLoading,
   onExecutePlan,
 }: DecisionFlowProps) {
   const alternatives = useMemo(
@@ -186,6 +188,8 @@ export function DecisionFlow({
       ),
     [candidatePlans, selectedEvaluation.strategy_label],
   );
+
+  const needsApproval = plan.approval_required && !plan.approval_status?.startsWith("approved");
 
   const [expandedReasoning, setExpandedReasoning] = useState(false);
   const [expandedAlternative, setExpandedAlternative] = useState<string | null>(
@@ -299,10 +303,18 @@ export function DecisionFlow({
                 </div>
 
                 <button
-                  onClick={onExecutePlan}
-                  className="flex w-full items-center justify-center gap-2 rounded bg-rausch px-6 py-3 text-[14px] font-bold text-pureWhite shadow-md transition-all hover:bg-rausch/90"
+                  onClick={() => void onExecutePlan?.()}
+                  disabled={actionLoading !== null && actionLoading !== undefined}
+                  className="flex w-full items-center justify-center gap-2 rounded bg-rausch px-6 py-3 text-[14px] font-bold text-pureWhite shadow-md transition-all hover:bg-rausch/90 disabled:bg-rausch/60 disabled:cursor-not-allowed"
                 >
-                  <Zap size={16} /> Execute Recommended Plan
+                  {actionLoading === "approval:approve" && needsApproval ? (
+                    "Applying..."
+                  ) : (
+                    <>
+                      <Zap size={16} />
+                      {needsApproval ? "Approve and Execute" : "Execute Recommended Plan"}
+                    </>
+                  )}
                 </button>
               </div>
 

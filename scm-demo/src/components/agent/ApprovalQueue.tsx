@@ -70,24 +70,30 @@ function CompactKpiCard({
   delta: string;
 }) {
   return (
-    <div className="rounded-[18px] border border-borderGray bg-pureWhite px-4 py-3 shadow-sm">
+    <div className="rounded-[18px] border border-borderGray bg-pureWhite p-3 shadow-sm">
       <div className="border-b border-borderGray/30 pb-2 text-[10px] font-black uppercase tracking-widest text-secondaryGray">
         {label}
       </div>
-      <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-end gap-2">
+      <div className="mt-2.5 flex items-start justify-between">
         <div>
           <div className="text-[10px] uppercase tracking-wider text-secondaryGray">
             Before
           </div>
-          <div className="mt-1 text-[14px] font-bold text-nearBlack">{before}</div>
+          <div className="mt-0.5 text-[14px] md:text-[15px] font-bold text-nearBlack">
+            {before}
+          </div>
         </div>
-        <div className={`text-[12px] font-black ${deltaTone(delta)}`}>{delta}</div>
         <div className="text-right">
           <div className="text-[10px] uppercase tracking-wider text-secondaryGray">
             After
           </div>
-          <div className="mt-1 text-[14px] font-bold text-nearBlack">{after}</div>
+          <div className="mt-0.5 text-[14px] md:text-[15px] font-bold text-nearBlack">
+            {after}
+          </div>
         </div>
+      </div>
+      <div className={`mt-2.5 flex items-center justify-center rounded-[10px] bg-lightSurface/60 py-1.5 text-[12px] md:text-[13px] font-black ${deltaTone(delta)}`}>
+        {delta}
       </div>
     </div>
   );
