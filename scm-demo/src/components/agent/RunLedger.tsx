@@ -21,7 +21,13 @@ import {
   humanizeStrategy, 
   severitySummary 
 } from '../../lib/presenters';
-import { causalTone, eventSummary, kpiRow } from './AgentShared';
+import {
+  ProjectionTimelineStrip,
+  ProjectedStateSummaryCard,
+  causalTone,
+  eventSummary,
+  kpiRow,
+} from './AgentShared';
 import { ReflectionMemoryPanel } from './ReflectionMemoryPanel';
 
 interface RunLedgerProps {
@@ -71,6 +77,10 @@ export function RunLedger({
   const selectedRunReflections = selectedRunState?.reflections.filter(
     (item) => item.run_id === selectedRun?.run_id,
   ) ?? [];
+  const selectedRunEvaluation =
+    selectedRunDecision?.candidate_evaluations.find(
+      (item) => item.strategy_label === selectedRunTrace?.selected_strategy,
+    ) ?? null;
 
   return (
     <section className="space-y-5">
@@ -305,6 +315,25 @@ export function RunLedger({
                   )}
                 </div>
               </div>
+
+              {selectedRunEvaluation ? (
+                <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_1fr]">
+                  <div className="space-y-4">
+                    <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Projected timeline</div>
+                    <ProjectionTimelineStrip steps={selectedRunEvaluation.projection_steps} />
+                  </div>
+                  <div className="space-y-4">
+                    <div className="text-[12px] uppercase tracking-wider text-secondaryGray">Projected end-state</div>
+                    {selectedRunEvaluation.projected_state_summary ? (
+                      <ProjectedStateSummaryCard summary={selectedRunEvaluation.projected_state_summary} />
+                    ) : (
+                      <div className="rounded-card border border-borderGray bg-lightSurface px-5 py-6 text-[14px] text-secondaryGray">
+                        No projected end-state summary was recorded for this run.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : null}
 
               <div className="grid grid-cols-1 gap-6 xl:grid-cols-[0.95fr_1.05fr]">
                 <div className="space-y-4">

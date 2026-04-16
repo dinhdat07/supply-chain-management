@@ -55,12 +55,40 @@ export interface ActionView {
   parameters: Record<string, unknown>;
 }
 
+export interface ProjectionStepView {
+  step_index: number;
+  label: string;
+  kpis: KPIView;
+  event_severity: number;
+  inventory_at_risk: number;
+  inventory_out_of_stock: number;
+  backlog_units: number;
+  inbound_units_due: number;
+  summary: string;
+  key_changes: string[];
+}
+
+export interface ProjectedStateSummaryView {
+  inventory_at_risk: number;
+  inventory_out_of_stock: number;
+  backlog_units: number;
+  inbound_units_scheduled: number;
+  dominant_constraint: string;
+  event_severity_end: number;
+  summary: string;
+}
+
 export interface CandidateEvaluationView {
   strategy_label: string;
   action_ids: string[];
   score: number;
   score_breakdown: Record<string, number>;
   projected_kpis: KPIView;
+  worst_case_kpis?: KPIView | null;
+  simulation_horizon_days: number;
+  projection_steps: ProjectionStepView[];
+  projected_state_summary?: ProjectedStateSummaryView | null;
+  projection_summary: string;
   feasible?: boolean;
   violations?: Array<{ code: string; message: string; action_id?: string | null; severity: string }>;
   mode_rationale?: string;

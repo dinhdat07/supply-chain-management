@@ -28,11 +28,10 @@ import type {
   PlanView,
 } from "../../lib/types";
 import {
-  describeActionTitle,
   describeActionTarget,
+  describeActionTitle,
   formatDateTime,
   humanizeAction,
-  humanizeEntityId,
   humanizeStatus,
   humanizeStrategy,
 } from "../../lib/presenters";
@@ -64,7 +63,8 @@ function statusTone(status: string): string {
 function StatusBadge({ status }: { status: string }) {
   return (
     <span
-      className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest ${statusTone(status)}`}>
+      className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest ${statusTone(status)}`}
+    >
       {humanizeStatus(status)}
     </span>
   );
@@ -82,8 +82,50 @@ function MiniProgressBar({ value }: { value: number }) {
   );
 }
 
+function resolveExecutionTarget(record: ActionExecutionRecordView): string {
+  const payload = record.payload as Record<string, unknown>;
+  const candidates = [
+    payload.target_id,
+    payload.sku,
+    payload.supplier_id,
+    payload.route_id,
+    payload.warehouse_id,
+  ];
+  const firstMatch = candidates.find((value) => typeof value === "string");
+  return typeof firstMatch === "string" ? firstMatch : record.action_id;
+}
+
+function executionTitle(record: ActionExecutionRecordView): string {
+  return describeActionTitle(record.action_type, resolveExecutionTarget(record));
+}
+
 function executionSubtitle(record: ActionExecutionRecordView): string {
-  return `${humanizeAction(record.action_type)} for ${humanizeEntityId(record.action_id)}`;
+  return describeActionTarget(record.action_type, resolveExecutionTarget(record));
+}
+
+function isCompletedRecord(record: ActionExecutionRecordView): boolean {
+  return record.status === "completed" || record.status === "applied";
+}
+
+function sortRecords(records: ActionExecutionRecordView[]): ActionExecutionRecordView[] {
+  const statusOrder: Record<string, number> = {
+    failed: 0,
+    in_progress: 1,
+    partially_applied: 2,
+    approval_pending: 3,
+    dispatched: 4,
+    planned: 5,
+    dry_run: 6,
+    completed: 7,
+    applied: 8,
+  };
+
+  return [...records].sort((left, right) => {
+    const leftRank = statusOrder[left.status] ?? 99;
+    const rightRank = statusOrder[right.status] ?? 99;
+    if (leftRank !== rightRank) return leftRank - rightRank;
+    return right.created_at.localeCompare(left.created_at);
+  });
 }
 
 function ExecutionHistoryCard({
@@ -98,15 +140,15 @@ function ExecutionHistoryCard({
   onRefresh: () => Promise<void>;
 }) {
   const [collapsed, setCollapsed] = useState(true);
-  const isDone = record.status === "completed" || record.status === "applied";
+  const isDone = isCompletedRecord(record);
   const isFailed = record.status === "failed";
   const isCommitRecord = record.dispatch_mode === "commit";
   const canAdvance = Boolean(
     onProgress &&
-    onComplete &&
-    isCommitRecord &&
-    record.status !== "completed" &&
-    record.status !== "failed",
+      onComplete &&
+      isCommitRecord &&
+      record.status !== "completed" &&
+      record.status !== "failed",
   );
 
   return (
@@ -119,10 +161,11 @@ function ExecutionHistoryCard({
             : record.status === "in_progress"
               ? "border-amber-200"
               : "border-borderGray"
-      }`}>
-      <div className="flex items-center gap-3 px-4 py-3">
+      }`}
+    >
+      <div className="flex items-start gap-3 px-4 py-3">
         <div
-          className={`h-2.5 w-2.5 shrink-0 rounded-full ${
+          className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${
             isDone
               ? "bg-green-500"
               : isFailed
@@ -133,19 +176,22 @@ function ExecutionHistoryCard({
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-mono text-[11px] font-bold text-nearBlack">
-              {record.execution_id}
-            </span>
+            <div className="text-[15px] font-bold text-nearBlack">
+              {executionTitle(record)}
+            </div>
             <StatusBadge status={record.status} />
           </div>
-          <div className="mt-0.5 flex flex-wrap items-center gap-3 text-[10px] text-secondaryGray">
-            <span>{executionSubtitle(record)}</span>
+          <div className="mt-1 text-[12px] text-secondaryGray">
+            {executionSubtitle(record)}
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-3 text-[10px] uppercase tracking-wider text-secondaryGray">
             <span>{record.target_system}</span>
+            <span>{record.dispatch_mode === "commit" ? "Commit" : "Dry run"}</span>
             <span>{formatDateTime(record.created_at)}</span>
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-3">
+        <div className="flex shrink-0 items-start gap-3">
           <div className="text-right">
             <div className="text-[18px] font-black leading-none text-nearBlack">
               {record.progress_percentage.toFixed(0)}%
@@ -156,13 +202,15 @@ function ExecutionHistoryCard({
             type="button"
             onClick={() => void onRefresh()}
             className="rounded-lg border border-borderGray p-1.5 text-secondaryGray hover:bg-lightSurface"
-            title="Refresh execution">
+            title="Refresh execution"
+          >
             <RefreshCcw size={12} />
           </button>
           <button
             type="button"
             onClick={() => setCollapsed((current) => !current)}
-            className="flex items-center gap-1.5 rounded-lg border border-borderGray px-3 py-1.5 text-[11px] font-bold text-secondaryGray hover:bg-lightSurface">
+            className="flex items-center gap-1.5 rounded-lg border border-borderGray px-3 py-1.5 text-[11px] font-bold text-secondaryGray hover:bg-lightSurface"
+          >
             {collapsed ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
             {collapsed ? "Details" : "Collapse"}
           </button>
@@ -180,6 +228,12 @@ function ExecutionHistoryCard({
               <span className="text-secondaryGray">Action type</span>
               <span className="font-bold uppercase text-nearBlack">
                 {humanizeAction(record.action_type)}
+              </span>
+            </div>
+            <div className="mt-2 flex justify-between gap-3">
+              <span className="text-secondaryGray">Execution id</span>
+              <span className="font-mono text-[10px] text-nearBlack">
+                {record.execution_id}
               </span>
             </div>
             <div className="mt-2 flex justify-between gap-3">
@@ -219,7 +273,8 @@ function ExecutionHistoryCard({
                 {Object.entries(record.receipt).map(([key, value]) => (
                   <div
                     key={key}
-                    className="flex flex-col gap-1 rounded-lg border border-borderGray bg-lightSurface px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+                    className="flex flex-col gap-1 rounded-lg border border-borderGray bg-lightSurface px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
+                  >
                     <span className="font-semibold text-secondaryGray">
                       {key}
                     </span>
@@ -246,13 +301,15 @@ function ExecutionHistoryCard({
               <button
                 type="button"
                 onClick={() => void onProgress?.(record.execution_id)}
-                className="rounded-xl border border-borderGray bg-pureWhite px-4 py-2 text-[12px] font-bold text-nearBlack hover:bg-lightSurface">
+                className="rounded-xl border border-borderGray bg-pureWhite px-4 py-2 text-[12px] font-bold text-nearBlack hover:bg-lightSurface"
+              >
                 Advance to 50%
               </button>
               <button
                 type="button"
                 onClick={() => void onComplete?.(record.execution_id)}
-                className="rounded-xl bg-nearBlack px-4 py-2 text-[12px] font-bold text-pureWhite hover:bg-nearBlack/90">
+                className="rounded-xl bg-nearBlack px-4 py-2 text-[12px] font-bold text-pureWhite hover:bg-nearBlack/90"
+              >
                 Mark complete
               </button>
             </div>
@@ -273,9 +330,7 @@ export function ExecutionDashboard({
   onOpenApproval,
   onClose,
 }: ExecutionDashboardProps) {
-  const [activeView, setActiveView] = useState<"history" | "dispatch">(
-    "history",
-  );
+  const [activeView, setActiveView] = useState<"history" | "dispatch">("history");
   const [executions, setExecutions] = useState<ActionExecutionRecordView[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
@@ -290,6 +345,8 @@ export function ExecutionDashboard({
 
   const [actionBusyId, setActionBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [showCompleted, setShowCompleted] = useState(false);
+  const [showAllPackageActions, setShowAllPackageActions] = useState(false);
 
   const needsApproval = Boolean(
     plan?.approval_required && plan.approval_status !== "approved",
@@ -300,7 +357,7 @@ export function ExecutionDashboard({
     setHistoryError(null);
     try {
       const response = await fetchExecutionList();
-      setExecutions(response.items);
+      setExecutions(sortRecords(response.items));
     } catch (error) {
       setHistoryError(error instanceof Error ? error.message : String(error));
     } finally {
@@ -314,10 +371,27 @@ export function ExecutionDashboard({
 
   const relevantExecutions = useMemo(() => {
     const latestRecords = dispatchResult?.records ?? [];
-    if (latestRecords.length) return latestRecords;
-    if (!plan) return executions;
-    return executions.filter((item) => item.plan_id === plan.plan_id);
+    if (latestRecords.length) return sortRecords(latestRecords);
+    if (!plan) return sortRecords(executions);
+    return sortRecords(executions.filter((item) => item.plan_id === plan.plan_id));
   }, [dispatchResult?.records, executions, plan]);
+
+  const activeExecutions = useMemo(
+    () => executions.filter((record) => !isCompletedRecord(record)),
+    [executions],
+  );
+  const completedExecutions = useMemo(
+    () => executions.filter((record) => isCompletedRecord(record)),
+    [executions],
+  );
+  const relevantActiveExecutions = useMemo(
+    () => relevantExecutions.filter((record) => !isCompletedRecord(record)),
+    [relevantExecutions],
+  );
+  const relevantCompletedExecutions = useMemo(
+    () => relevantExecutions.filter((record) => isCompletedRecord(record)),
+    [relevantExecutions],
+  );
 
   const handleDispatch = async () => {
     if (!plan) return;
@@ -341,16 +415,18 @@ export function ExecutionDashboard({
     try {
       const updated = await updateExecutionProgress(executionId, 50);
       setExecutions((current) =>
-        current.map((item) =>
-          item.execution_id === executionId ? updated : item,
+        sortRecords(
+          current.map((item) => (item.execution_id === executionId ? updated : item)),
         ),
       );
       setDispatchResult((current) =>
         current
           ? {
               ...current,
-              records: current.records.map((item) =>
-                item.execution_id === executionId ? updated : item,
+              records: sortRecords(
+                current.records.map((item) =>
+                  item.execution_id === executionId ? updated : item,
+                ),
               ),
             }
           : current,
@@ -368,16 +444,18 @@ export function ExecutionDashboard({
     try {
       const updated = await completeExecution(executionId);
       setExecutions((current) =>
-        current.map((item) =>
-          item.execution_id === executionId ? updated : item,
+        sortRecords(
+          current.map((item) => (item.execution_id === executionId ? updated : item)),
         ),
       );
       setDispatchResult((current) =>
         current
           ? {
               ...current,
-              records: current.records.map((item) =>
-                item.execution_id === executionId ? updated : item,
+              records: sortRecords(
+                current.records.map((item) =>
+                  item.execution_id === executionId ? updated : item,
+                ),
               ),
             }
           : current,
@@ -390,6 +468,10 @@ export function ExecutionDashboard({
     }
   };
 
+  const actionPackagePreview = showAllPackageActions
+    ? plan?.actions ?? []
+    : (plan?.actions ?? []).slice(0, 6);
+
   return (
     <section className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -398,8 +480,7 @@ export function ExecutionDashboard({
             Execution Manager
           </h2>
           <p className="mt-0.5 text-[12px] text-secondaryGray">
-            Dispatch the selected action package and track execution updates
-            from dry run through completion.
+            Dispatch the selected action package and track execution updates from dry run through completion.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -410,7 +491,8 @@ export function ExecutionDashboard({
               activeView === "history"
                 ? "border-nearBlack bg-nearBlack text-pureWhite"
                 : "border-borderGray text-secondaryGray hover:bg-lightSurface"
-            }`}>
+            }`}
+          >
             <List size={13} /> Execution list
           </button>
           <button
@@ -420,14 +502,16 @@ export function ExecutionDashboard({
               activeView === "dispatch"
                 ? "border-rausch bg-rausch text-pureWhite"
                 : "border-borderGray text-secondaryGray hover:bg-lightSurface"
-            }`}>
+            }`}
+          >
             <PlusCircle size={13} /> Dispatch plan
           </button>
           {onClose ? (
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl border border-borderGray px-3 py-2 text-[12px] font-bold text-secondaryGray hover:bg-lightSurface">
+              className="rounded-xl border border-borderGray px-3 py-2 text-[12px] font-bold text-secondaryGray hover:bg-lightSurface"
+            >
               Close
             </button>
           ) : null}
@@ -436,21 +520,27 @@ export function ExecutionDashboard({
 
       {activeView === "history" ? (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="text-[12px] text-secondaryGray">
-              {loadingHistory
-                ? "Loading execution records..."
-                : `${executions.length} execution record${executions.length !== 1 ? "s" : ""}`}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2 text-[12px] text-secondaryGray">
+              <span>
+                {loadingHistory
+                  ? "Loading execution records..."
+                  : `${executions.length} execution record${executions.length !== 1 ? "s" : ""}`}
+              </span>
+              <span className="rounded-full bg-lightSurface px-2.5 py-1 text-[11px] font-semibold text-nearBlack">
+                {activeExecutions.length} active
+              </span>
+              <span className="rounded-full bg-lightSurface px-2.5 py-1 text-[11px] font-semibold text-nearBlack">
+                {completedExecutions.length} completed
+              </span>
             </div>
             <button
               type="button"
               onClick={() => void loadHistory()}
               disabled={loadingHistory}
-              className="flex items-center gap-1.5 rounded-lg border border-borderGray px-3 py-1.5 text-[11px] font-bold text-secondaryGray hover:bg-lightSurface disabled:opacity-50">
-              <RefreshCcw
-                size={12}
-                className={loadingHistory ? "animate-spin" : ""}
-              />
+              className="flex items-center gap-1.5 rounded-lg border border-borderGray px-3 py-1.5 text-[11px] font-bold text-secondaryGray hover:bg-lightSurface disabled:opacity-50"
+            >
+              <RefreshCcw size={12} className={loadingHistory ? "animate-spin" : ""} />
               Refresh
             </button>
           </div>
@@ -474,24 +564,74 @@ export function ExecutionDashboard({
               <button
                 type="button"
                 onClick={() => setActiveView("dispatch")}
-                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-nearBlack px-6 py-2.5 text-[13px] font-bold text-pureWhite hover:bg-nearBlack/90">
+                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-nearBlack px-6 py-2.5 text-[13px] font-bold text-pureWhite hover:bg-nearBlack/90"
+              >
                 <PlusCircle size={14} /> Open dispatch
               </button>
             </div>
           ) : (
-            <div className="space-y-3">
-              {executions.map((record) => (
-                <div
-                  key={record.execution_id}
-                  className={actionBusyId === record.execution_id ? "opacity-70" : ""}>
-                  <ExecutionHistoryCard
-                    record={record}
-                    onRefresh={loadHistory}
-                    onProgress={handleProgress}
-                    onComplete={handleComplete}
-                  />
+            <div className="space-y-4">
+              <div className="space-y-3">
+                <div className="text-[12px] font-black uppercase tracking-widest text-secondaryGray">
+                  Pending and in progress
                 </div>
-              ))}
+                {activeExecutions.length ? (
+                  activeExecutions.map((record) => (
+                    <div
+                      key={record.execution_id}
+                      className={actionBusyId === record.execution_id ? "opacity-70" : ""}
+                    >
+                      <ExecutionHistoryCard
+                        record={record}
+                        onRefresh={loadHistory}
+                        onProgress={handleProgress}
+                        onComplete={handleComplete}
+                      />
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-4 text-[13px] text-green-700">
+                    No active executions. Current records are completed or awaiting the next dispatch.
+                  </div>
+                )}
+              </div>
+
+              {completedExecutions.length ? (
+                <div className="space-y-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowCompleted((current) => !current)}
+                    className="flex w-full items-center justify-between rounded-xl border border-borderGray bg-pureWhite px-4 py-3 text-left"
+                  >
+                    <div>
+                      <div className="text-[12px] font-black uppercase tracking-widest text-secondaryGray">
+                        Completed actions
+                      </div>
+                      <div className="mt-1 text-[13px] text-secondaryGray">
+                        Archived separately so the active queue stays focused.
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-[11px] font-bold text-secondaryGray">
+                      <span>{completedExecutions.length} records</span>
+                      {showCompleted ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                    </div>
+                  </button>
+
+                  {showCompleted ? (
+                    <div className="max-h-[380px] space-y-3 overflow-y-auto pr-1 custom-scrollbar">
+                      {completedExecutions.map((record) => (
+                        <ExecutionHistoryCard
+                          key={record.execution_id}
+                          record={record}
+                          onRefresh={loadHistory}
+                          onProgress={handleProgress}
+                          onComplete={handleComplete}
+                        />
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           )}
         </div>
@@ -506,8 +646,7 @@ export function ExecutionDashboard({
                 No active plan
               </h3>
               <p className="mt-2 text-[13px] text-secondaryGray">
-                Generate a recommendation in the operations console before
-                dispatching.
+                Generate a recommendation in the operations console before dispatching.
               </p>
             </div>
           ) : (
@@ -535,10 +674,16 @@ export function ExecutionDashboard({
 
               <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
                 <div
-                  className={`rounded-[18px] border bg-pureWhite p-5 shadow-sm ${needsApproval ? "border-amber-300" : "border-green-200"}`}>
+                  className={`rounded-[18px] border bg-pureWhite p-5 shadow-sm ${
+                    needsApproval ? "border-amber-300" : "border-green-200"
+                  }`}
+                >
                   <div className="mb-4 flex items-center gap-3">
                     <div
-                      className={`flex h-8 w-8 items-center justify-center rounded-full text-[12px] font-black text-pureWhite ${needsApproval ? "bg-nearBlack" : "bg-green-600"}`}>
+                      className={`flex h-8 w-8 items-center justify-center rounded-full text-[12px] font-black text-pureWhite ${
+                        needsApproval ? "bg-nearBlack" : "bg-green-600"
+                      }`}
+                    >
                       1
                     </div>
                     <div>
@@ -550,10 +695,7 @@ export function ExecutionDashboard({
                       </h3>
                     </div>
                     {!needsApproval ? (
-                      <CheckCircle2
-                        size={20}
-                        className="ml-auto text-green-600"
-                      />
+                      <CheckCircle2 size={20} className="ml-auto text-green-600" />
                     ) : null}
                   </div>
 
@@ -580,7 +722,8 @@ export function ExecutionDashboard({
                       <button
                         type="button"
                         onClick={onOpenApproval}
-                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-nearBlack py-3 text-[13px] font-black text-pureWhite transition-all hover:bg-nearBlack/90">
+                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-nearBlack py-3 text-[13px] font-black text-pureWhite transition-all hover:bg-nearBlack/90"
+                      >
                         <Shield size={15} />
                         Open approval queue
                       </button>
@@ -594,10 +737,16 @@ export function ExecutionDashboard({
                 </div>
 
                 <div
-                  className={`rounded-[18px] border bg-pureWhite p-5 shadow-sm ${dispatchResult ? "border-blue-200" : "border-borderGray"}`}>
+                  className={`rounded-[18px] border bg-pureWhite p-5 shadow-sm ${
+                    dispatchResult ? "border-blue-200" : "border-borderGray"
+                  }`}
+                >
                   <div className="mb-4 flex items-center gap-3">
                     <div
-                      className={`flex h-8 w-8 items-center justify-center rounded-full text-[12px] font-black text-pureWhite ${dispatchResult ? "bg-green-600" : "bg-nearBlack"}`}>
+                      className={`flex h-8 w-8 items-center justify-center rounded-full text-[12px] font-black text-pureWhite ${
+                        dispatchResult ? "bg-green-600" : "bg-nearBlack"
+                      }`}
+                    >
                       2
                     </div>
                     <div>
@@ -623,7 +772,8 @@ export function ExecutionDashboard({
                                 ? "border-rausch bg-rausch/10 text-rausch"
                                 : "border-nearBlack bg-nearBlack text-pureWhite"
                               : "border-borderGray text-secondaryGray hover:bg-lightSurface"
-                          }`}>
+                          }`}
+                        >
                           {mode === "dry_run" ? (
                             <FlaskConical size={14} />
                           ) : (
@@ -642,7 +792,8 @@ export function ExecutionDashboard({
                         dispatchMode === "commit"
                           ? "bg-rausch hover:bg-rausch/90"
                           : "bg-nearBlack hover:bg-nearBlack/90"
-                      }`}>
+                      }`}
+                    >
                       {dispatching ? (
                         <Loader2 size={15} className="animate-spin" />
                       ) : (
@@ -655,10 +806,8 @@ export function ExecutionDashboard({
 
                     {dispatchResult ? (
                       <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-[12px] text-blue-700">
-                        {dispatchResult.records.length} action records created
-                        with{" "}
-                        {humanizeStatus(dispatchResult.plan_execution_status)}{" "}
-                        status.
+                        {dispatchResult.records.length} action records created with{" "}
+                        {humanizeStatus(dispatchResult.plan_execution_status)} status.
                       </div>
                     ) : null}
 
@@ -695,28 +844,34 @@ export function ExecutionDashboard({
                     <div className="rounded-xl border border-borderGray bg-pureWhite px-4 py-4">
                       <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-secondaryGray">
                         <Clock3 className="h-4 w-4" />
-                        Action package
+                        Actions to be executed
                       </div>
-                      <div className="mt-3 space-y-3">
-                        {plan.actions.map((action) => (
+                      <div className="mt-3 max-h-[280px] space-y-3 overflow-y-auto pr-1 custom-scrollbar">
+                        {actionPackagePreview.map((action) => (
                           <div
                             key={action.action_id}
-                            className="rounded-card border border-borderGray bg-lightSurface px-3 py-3">
+                            className="rounded-card border border-borderGray bg-lightSurface px-3 py-3"
+                          >
                             <div className="text-[13px] font-bold text-nearBlack">
-                              {describeActionTitle(
-                                action.action_type,
-                                action.target_id,
-                              )}
+                              {describeActionTitle(action.action_type, action.target_id)}
                             </div>
                             <div className="mt-1 text-[12px] text-secondaryGray">
-                              {describeActionTarget(
-                                action.action_type,
-                                action.target_id,
-                              )}
+                              {describeActionTarget(action.action_type, action.target_id)}
                             </div>
                           </div>
                         ))}
                       </div>
+                      {(plan.actions.length ?? 0) > 6 ? (
+                        <button
+                          type="button"
+                          onClick={() => setShowAllPackageActions((current) => !current)}
+                          className="mt-3 text-[12px] font-bold text-secondaryGray hover:text-nearBlack"
+                        >
+                          {showAllPackageActions
+                            ? "Show fewer actions"
+                            : `Show all ${plan.actions.length} actions`}
+                        </button>
+                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -730,24 +885,50 @@ export function ExecutionDashboard({
               ) : null}
 
               {relevantExecutions.length ? (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <div className="text-[12px] uppercase tracking-wider text-secondaryGray">
                     Action execution records
                   </div>
-                  {relevantExecutions.map((record) => (
-                    <div
-                      key={record.execution_id}
-                      className={
-                        actionBusyId === record.execution_id ? "opacity-70" : ""
-                      }>
-                      <ExecutionHistoryCard
-                        record={record}
-                        onRefresh={loadHistory}
-                        onProgress={handleProgress}
-                        onComplete={handleComplete}
-                      />
+
+                  {relevantActiveExecutions.length ? (
+                    <div className="space-y-3">
+                      <div className="text-[11px] font-black uppercase tracking-widest text-secondaryGray">
+                        Active actions
+                      </div>
+                      {relevantActiveExecutions.map((record) => (
+                        <div
+                          key={record.execution_id}
+                          className={actionBusyId === record.execution_id ? "opacity-70" : ""}
+                        >
+                          <ExecutionHistoryCard
+                            record={record}
+                            onRefresh={loadHistory}
+                            onProgress={handleProgress}
+                            onComplete={handleComplete}
+                          />
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  ) : null}
+
+                  {relevantCompletedExecutions.length ? (
+                    <div className="space-y-3">
+                      <div className="text-[11px] font-black uppercase tracking-widest text-secondaryGray">
+                        Completed actions
+                      </div>
+                      <div className="max-h-[320px] space-y-3 overflow-y-auto pr-1 custom-scrollbar">
+                        {relevantCompletedExecutions.map((record) => (
+                          <ExecutionHistoryCard
+                            key={record.execution_id}
+                            record={record}
+                            onRefresh={loadHistory}
+                            onProgress={handleProgress}
+                            onComplete={handleComplete}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
             </>
