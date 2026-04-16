@@ -108,6 +108,19 @@ export function ThinkingEventBubble({ event, isLast, isStreaming }: ThinkingEven
 
   const isTerminal = event.type === 'final' || event.type === 'error';
 
+  // Safely parse timestamp - handle cases where backend might or might not include 'Z'
+  const formattedTime = event.timestamp ? (() => {
+    const dateStr = event.timestamp.endsWith('Z') ? event.timestamp : `${event.timestamp}Z`;
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? null : d.toLocaleTimeString([], { 
+      hour12: false, 
+      hour: '2-digit', 
+      minute: '2-digit', 
+      second: '2-digit', 
+      fractionalSecondDigits: 3 
+    });
+  })() : null;
+
   return (
     <div className={`flex gap-4 transition-all duration-300 ${
       isLast && isStreaming ? 'animate-slide-in' : ''
@@ -134,9 +147,21 @@ export function ThinkingEventBubble({ event, isLast, isStreaming }: ThinkingEven
           <span className={`rounded-badge border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.32px] ${agentBadgeClass(event.agent)}`}>
             {typeLabel}
           </span>
-          <span className="ml-auto text-[11px] tabular-nums text-secondaryGray/50">
-            #{event.sequence}
-          </span>
+          {event.data?.llm_used === true && (
+            <span className="flex items-center gap-1 rounded bg-purple-100 text-purple-700 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.02em]">
+              <Sparkles size={10} /> AI
+            </span>
+          )}
+          <div className="ml-auto flex items-center gap-2">
+            {formattedTime && (
+              <span className="text-[11px] font-medium text-secondaryGray/60 tabular-nums">
+                {formattedTime}
+              </span>
+            )}
+            <span className="text-[11px] tabular-nums font-semibold text-secondaryGray/50 bg-lightSurface px-1.5 py-0.5 rounded-sm border border-borderGray">
+              #{event.sequence}
+            </span>
+          </div>
         </div>
 
         {/* Message bubble */}
@@ -156,12 +181,16 @@ export function ThinkingEventBubble({ event, isLast, isStreaming }: ThinkingEven
           {/* Data tags */}
           {event.data && Object.keys(event.data).length > 0 && (
             <div className="mt-3 flex flex-wrap gap-1.5">
-              {Object.entries(event.data).map(([key, value]) => (
+              {Object.entries(event.data)
+                .filter(([key]) => !['llm_used', 'llm_error'].includes(key))
+                .filter(([, value]) => value !== null && value !== '')
+                .map(([key, value]) => (
                 <span
                   key={key}
                   className="rounded-sm bg-lightSurface border border-borderGray/50 px-2 py-0.5 text-[11px] font-medium text-secondaryGray"
                 >
-                  {key}: {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                  <span className="font-semibold text-nearBlack mr-1">{key}:</span>
+                  {typeof value === 'object' ? JSON.stringify(value) : String(value)}
                 </span>
               ))}
             </div>

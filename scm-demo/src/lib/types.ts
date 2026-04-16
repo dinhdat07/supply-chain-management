@@ -575,6 +575,7 @@ export interface ThinkingEvent {
   message: string;
   data: Record<string, unknown>;
   sequence: number;
+  timestamp?: string;
 }
 
 export interface StreamTriggerResponse {
