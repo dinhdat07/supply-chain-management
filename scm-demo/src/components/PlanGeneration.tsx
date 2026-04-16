@@ -29,7 +29,6 @@ const STEP_ICONS: Record<string, any> = {
 
 export function PlanGeneration({ 
   trace, 
-  loading,
   pendingApproval,
   actionLoading,
   thinkingEvents = [],
