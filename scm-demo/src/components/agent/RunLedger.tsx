@@ -191,13 +191,13 @@ export function RunLedger({
   historyLoading,
   onSelectRun,
 }: RunLedgerProps) {
-  const selectedRunEvent = selectedRunTrace?.event ?? null;
   const selectedRunSummary = selectedRunState?.summary ?? null;
   const selectedRunExecutionStatus =
     selectedRunExecution?.status ?? selectedRun?.execution_summary?.status ?? null;
   const selectedRunReflections =
     selectedRunState?.reflections.filter((item) => item.run_id === selectedRun?.run_id) ?? [];
   const [activeStoryStep, setActiveStoryStep] = useState<StoryStepKey>("signal");
+  const [expandedTimelineItems, setExpandedTimelineItems] = useState<Record<string, boolean>>({});
 
   const lifecycleSteps: StoryStepKey[] = [
     "signal",
@@ -336,9 +336,9 @@ export function RunLedger({
                 </div>
               </div>
 
-              <div className="rounded-[20px] border border-borderGray bg-pureWhite shadow-sm">
-                <div className="grid grid-cols-2 gap-px bg-borderGray/30 md:grid-cols-6">
-                  <div className="bg-lightSurface/40 px-4 py-4 md:col-span-2">
+              <div className="flex flex-col gap-px overflow-hidden rounded-[20px] border border-borderGray bg-borderGray/30 shadow-sm">
+                <div className="grid grid-cols-1 gap-px md:grid-cols-3">
+                  <div className="bg-lightSurface/40 px-4 py-4">
                     <div className="text-[10px] font-black uppercase tracking-widest text-secondaryGray">
                       Run summary
                     </div>
@@ -362,7 +362,9 @@ export function RunLedger({
                       {humanizeStatus(selectedRun.mode_after)}
                     </div>
                   </div>
-                  <div className="bg-lightSurface/40 px-4 py-4">
+                  </div>
+                <div className="grid grid-cols-2 gap-px lg:grid-cols-4">
+                  <div className="bg-pureWhite px-4 py-4">
                     <div className="text-[10px] font-black uppercase tracking-widest text-secondaryGray">
                       Service
                     </div>
@@ -376,7 +378,7 @@ export function RunLedger({
                         : "--"}
                     </div>
                   </div>
-                  <div className="bg-lightSurface/40 px-4 py-4">
+                  <div className="bg-pureWhite px-4 py-4">
                     <div className="text-[10px] font-black uppercase tracking-widest text-secondaryGray">
                       Risk
                     </div>
@@ -390,7 +392,7 @@ export function RunLedger({
                         : "--"}
                     </div>
                   </div>
-                  <div className="bg-lightSurface/40 px-4 py-4">
+                  <div className="bg-pureWhite px-4 py-4">
                     <div className="text-[10px] font-black uppercase tracking-widest text-secondaryGray">
                       Cost
                     </div>
@@ -404,7 +406,7 @@ export function RunLedger({
                         : "--"}
                     </div>
                   </div>
-                  <div className="bg-lightSurface/40 px-4 py-4">
+                  <div className="bg-pureWhite px-4 py-4">
                     <div className="text-[10px] font-black uppercase tracking-widest text-secondaryGray">
                       Recovery
                     </div>
@@ -441,7 +443,7 @@ export function RunLedger({
                         key={step}
                         type="button"
                         onClick={() => setActiveStoryStep(step)}
-                        className={`rounded-full border px-4 py-3 text-left transition-all ${
+                        className={`flex h-full flex-col justify-start rounded-[16px] border px-4 py-3 text-left transition-all ${
                           isActive
                             ? "border-nearBlack bg-nearBlack text-pureWhite shadow-card"
                             : "border-borderGray bg-pureWhite hover:bg-lightSurface"
@@ -450,7 +452,7 @@ export function RunLedger({
                         <div className="text-[10px] font-black uppercase tracking-widest">
                           {summary.title}
                         </div>
-                        <div className="mt-1 text-[13px] font-bold">{summary.value}</div>
+                        <div className="mt-1 text-[13px] font-bold leading-tight">{summary.value}</div>
                       </button>
                     );
                   })}
@@ -494,7 +496,7 @@ export function RunLedger({
                   Impact & State
                 </div>
                 <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.1fr_0.9fr]">
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 auto-rows-fr">
                     {selectedRunDecision ? (
                       <>
                         <div className="rounded-[18px] border border-borderGray bg-lightSurface/60 px-4 py-4">
@@ -565,7 +567,7 @@ export function RunLedger({
                     )}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-3 auto-rows-fr">
                     <div className="rounded-[18px] border border-borderGray bg-lightSurface/60 px-4 py-4">
                       <div className="text-[10px] font-black uppercase tracking-widest text-secondaryGray">
                         Mode
@@ -622,17 +624,39 @@ export function RunLedger({
                             )}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center justify-between gap-3">
-                              <div className="text-[14px] font-bold text-nearBlack">
+                            <div className="flex justify-between gap-3">
+                              <div
+                                className={`text-[14px] font-bold text-nearBlack ${
+                                  item.title.length > 200 && !expandedTimelineItems[item.key]
+                                    ? "line-clamp-3"
+                                    : ""
+                                }`}
+                              >
                                 {item.title}
                               </div>
-                              <div className="text-[11px] uppercase tracking-wider text-secondaryGray">
+                              <div className="shrink-0 whitespace-nowrap text-[11px] uppercase tracking-wider text-secondaryGray">
                                 {formatDateTime(item.timestamp)}
                               </div>
                             </div>
-                            <p className="mt-1 text-[13px] leading-6 text-secondaryGray">
-                              {item.detail}
-                            </p>
+                            <div className="mt-1">
+                              <p className="text-[13px] leading-6 text-secondaryGray">
+                                {item.detail}
+                              </p>
+                              {item.title.length > 200 && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setExpandedTimelineItems((prev) => ({
+                                      ...prev,
+                                      [item.key]: !prev[item.key],
+                                    }))
+                                  }
+                                  className="mt-2 text-[12px] font-bold text-nearBlack hover:underline"
+                                >
+                                  {expandedTimelineItems[item.key] ? "Show less" : "Show more"}
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>

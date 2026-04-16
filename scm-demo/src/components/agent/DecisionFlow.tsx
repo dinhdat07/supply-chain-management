@@ -783,32 +783,40 @@ export function DecisionFlow({
             </div>
 
             <div className="space-y-3">
-              {reflections.slice(0, 3).map((reflection, index) => (
-                <div
-                  key={`${reflection.note_id}-${index}`}
-                  className="border-b border-borderGray/30 pb-3 last:border-0 last:pb-0"
-                >
-                  <div className="flex items-start gap-3">
-                    <History size={14} className="mt-0.5 shrink-0 text-rausch" />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[13px] font-bold text-nearBlack">
-                        {reflection.summary}
-                      </div>
-                      <div className="mt-2 max-h-[220px] space-y-1 overflow-y-auto pr-1 text-[12px] text-secondaryGray custom-scrollbar">
-                        {reflection.lessons.map((lesson, lessonIndex) => (
-                          <div
-                            key={`${reflection.note_id}-lesson-${lessonIndex}`}
-                            className="flex items-start gap-2"
-                          >
-                            <span className="mt-[2px] text-rausch">•</span>
-                            <span>{lesson}</span>
+              {reflections.length > 0 ? (
+                <>
+                  {reflections.slice(0, 3).map((reflection, index) => (
+                    <div
+                      key={`${reflection.note_id}-${index}`}
+                      className="border-b border-borderGray/30 pb-3 last:border-0 last:pb-0"
+                    >
+                      <div className="flex items-start gap-3">
+                        <History size={14} className="mt-0.5 shrink-0 text-rausch" />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[13px] font-bold text-nearBlack">
+                            {reflection.summary}
                           </div>
-                        ))}
+                          <div className="mt-2 max-h-[220px] space-y-1 overflow-y-auto pr-1 text-[12px] text-secondaryGray custom-scrollbar">
+                            {reflection.lessons.map((lesson, lessonIndex) => (
+                              <div
+                                key={`${reflection.note_id}-lesson-${lessonIndex}`}
+                                className="flex items-start gap-2"
+                              >
+                                <span className="mt-[2px] text-rausch">•</span>
+                                <span>{lesson}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  ))}
+                </>
+              ) : (
+                <div className="py-4 text-center text-[13px] italic text-secondaryGray">
+                  No reflection memory found for this context.
                 </div>
-              ))}
+              )}
             </div>
           </div>
         </div>

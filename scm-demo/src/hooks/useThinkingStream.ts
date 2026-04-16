@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ThinkingEvent } from "../lib/types";
-import { triggerStreamingPlan, triggerStreamingScenario } from "../lib/api";
+import {
+  resolveStreamingWebSocketUrl,
+  triggerStreamingPlan,
+  triggerStreamingScenario,
+} from "../lib/api";
 
 export type StreamStatus = "idle" | "connecting" | "streaming" | "completed" | "error";
 
@@ -73,18 +77,20 @@ export function useThinkingStream(): UseThinkingStreamReturn {
     try {
       // Step 1: Trigger orchestration
       let run_id: string;
+      let wsPath: string;
       if (scenarioName) {
         const res = await triggerStreamingScenario(scenarioName as any);
         run_id = res.run_id;
+        wsPath = res.ws_url;
       } else {
         const res = await triggerStreamingPlan();
         run_id = res.run_id;
+        wsPath = res.ws_url;
       }
       setRunId(run_id);
 
       // Step 2: Open WebSocket
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const wsUrl = `${protocol}//${window.location.host}/api/v1/ws/thinking/${run_id}`;
+      const wsUrl = resolveStreamingWebSocketUrl(wsPath || `/ws/thinking/${run_id}`);
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 

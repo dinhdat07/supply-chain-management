@@ -51,6 +51,32 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+function toWebSocketOrigin(origin: string): string {
+  if (origin.startsWith("https://")) {
+    return `wss://${origin.slice("https://".length)}`;
+  }
+  if (origin.startsWith("http://")) {
+    return `ws://${origin.slice("http://".length)}`;
+  }
+  return origin;
+}
+
+function websocketOrigin(): string {
+  const configuredOrigin = import.meta.env.VITE_API_ORIGIN?.trim();
+  if (configuredOrigin) {
+    return toWebSocketOrigin(configuredOrigin.replace(/\/$/, ""));
+  }
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${protocol}//${window.location.host}`;
+}
+
+export function resolveStreamingWebSocketUrl(wsPath: string): string {
+  const normalizedPath = wsPath.startsWith("/api/")
+    ? wsPath
+    : `${API_BASE}${wsPath.startsWith("/") ? wsPath : `/${wsPath}`}`;
+  return `${websocketOrigin()}${normalizedPath}`;
+}
+
 export function fetchSummary() {
   return requestJson<ControlTowerSummaryResponse>("/control-tower/summary");
 }
