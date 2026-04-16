@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Search } from 'lucide-react';
 
 import type { InventoryRowView } from '../lib/types';
-import { entityReference, humanizeEntityId, humanizeStatus } from '../lib/presenters';
+import { humanizeEntityId, humanizeStatus } from '../lib/presenters';
 
 interface InventoryProps {
   items: InventoryRowView[];
@@ -69,8 +69,8 @@ export function Inventory({ items, loading, error }: InventoryProps) {
                     <div className="font-semibold text-nearBlack text-[14px]">{item.name || humanizeEntityId(item.sku)}</div>
                     <div className="mt-1 text-[12px] text-secondaryGray">{item.sku}</div>
                   </td>
-                  <td className="px-6 py-4 text-[14px] text-nearBlack font-medium">{entityReference(item.warehouse_id)}</td>
-                  <td className="px-6 py-4 text-[14px] text-secondaryGray">{entityReference(item.preferred_supplier_id)}</td>
+                  <td className="px-6 py-4 text-[14px] text-nearBlack font-medium">{humanizeEntityId(item.warehouse_id)}</td>
+                  <td className="px-6 py-4 text-[14px] text-secondaryGray">{humanizeEntityId(item.preferred_supplier_id)}</td>
                   <td className={`px-6 py-4 text-[14px] font-bold ${item.on_hand <= item.reorder_point ? 'text-errorRed' : 'text-nearBlack'}`}>
                     {item.on_hand}
                   </td>
