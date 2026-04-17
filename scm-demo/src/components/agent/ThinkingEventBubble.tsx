@@ -58,6 +58,19 @@ const EVENT_TYPE_LABELS: Record<ThinkingEventType, string> = {
 
 /* ── Icon per agent ─────────────────────────────────────── */
 
+const AGENT_COLORS: Record<string, string> = {
+  risk: 'bg-rose-500 text-pureWhite',
+  supplier: 'bg-indigo-500 text-pureWhite',
+  demand: 'bg-purple-500 text-pureWhite',
+  inventory: 'bg-amber-500 text-nearBlack',
+  logistics: 'bg-teal-500 text-pureWhite',
+  planner: 'bg-nearBlack text-pureWhite',
+  critic: 'bg-emerald-600 text-pureWhite',
+  approval: 'bg-blue-600 text-pureWhite',
+  execution: 'bg-slate-600 text-pureWhite',
+  system: 'bg-secondaryGray text-pureWhite',
+};
+
 const AGENT_ICONS: Record<string, typeof BrainCircuit> = {
   risk: ShieldAlert,
   supplier: Factory,
@@ -68,28 +81,9 @@ const AGENT_ICONS: Record<string, typeof BrainCircuit> = {
   critic: CheckCircle2,
   approval: CheckCircle2,
   execution: Clock,
+  system: Loader2,
 };
 
-function agentBadgeClass(agent: string): string {
-  switch (agent) {
-    case 'risk':
-      return 'bg-errorRed/10 text-errorRed border-errorRed/20';
-    case 'demand':
-      return 'bg-blue-50 text-blue-600 border-blue-200';
-    case 'inventory':
-      return 'bg-orange-50 text-orange-600 border-orange-200';
-    case 'supplier':
-      return 'bg-purple-50 text-purple-600 border-purple-200';
-    case 'logistics':
-      return 'bg-green-50 text-green-600 border-green-200';
-    case 'planner':
-      return 'bg-rausch/10 text-rausch border-rausch/20';
-    case 'critic':
-      return 'bg-amber-50 text-amber-700 border-amber-200';
-    default:
-      return 'bg-lightSurface text-secondaryGray border-borderGray';
-  }
-}
 
 /* ── Component ──────────────────────────────────────────── */
 
@@ -102,13 +96,12 @@ interface ThinkingEventBubbleProps {
 export function ThinkingEventBubble({ event, isLast, isStreaming }: ThinkingEventBubbleProps) {
   const AgentIcon = AGENT_ICONS[event.agent] || BrainCircuit;
   const TypeIcon = EVENT_TYPE_ICONS[event.type] || Activity;
-  const dotColor = EVENT_TYPE_COLORS[event.type] || 'bg-secondaryGray text-pureWhite';
   const typeLabel = EVENT_TYPE_LABELS[event.type] || event.type;
   const agentName = event.agent.charAt(0).toUpperCase() + event.agent.slice(1);
-
+  const agentColorClass = AGENT_COLORS[event.agent] || AGENT_COLORS.system;
   const isTerminal = event.type === 'final' || event.type === 'error';
 
-  // Safely parse timestamp - handle cases where backend might or might not include 'Z'
+  // Safely parse timestamp
   const formattedTime = event.timestamp ? (() => {
     const dateStr = event.timestamp.endsWith('Z') ? event.timestamp : `${event.timestamp}Z`;
     const d = new Date(dateStr);
@@ -120,17 +113,17 @@ export function ThinkingEventBubble({ event, isLast, isStreaming }: ThinkingEven
       fractionalSecondDigits: 3 
     });
   })() : null;
-
+  
   return (
     <div className={`flex gap-4 transition-all duration-300 ${
       isLast && isStreaming ? 'animate-slide-in' : ''
     }`}>
-      {/* Avatar */}
-      <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center mt-1 z-10 transition-all duration-200 shadow-sm ${dotColor}`}>
+      {/* Avatar - Now colored by Agent */}
+      <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center mt-1 z-10 transition-all duration-200 shadow-sm border-2 border-pureWhite ${agentColorClass}`}>
         {isLast && isStreaming && !isTerminal ? (
           <Loader2 size={18} className="animate-spin" />
         ) : (
-          <TypeIcon size={18} />
+          <AgentIcon size={18} />
         )}
       </div>
 
@@ -139,13 +132,15 @@ export function ThinkingEventBubble({ event, isLast, isStreaming }: ThinkingEven
         {/* Header */}
         <div className="flex items-center gap-2.5 mb-1.5">
           <div className="flex items-center gap-1.5">
-            <AgentIcon size={14} className="text-secondaryGray" />
             <span className="font-bold text-[15px] text-nearBlack tracking-[-0.22px]">
               {agentName} Agent
             </span>
           </div>
-          <span className={`rounded-badge border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.32px] ${agentBadgeClass(event.agent)}`}>
-            {typeLabel}
+          <span className={`rounded-badge border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.32px] ${EVENT_TYPE_COLORS[event.type]}`}>
+            <span className="flex items-center gap-1">
+              <TypeIcon size={10} />
+              {typeLabel}
+            </span>
           </span>
           {event.data?.llm_used === true && (
             <span className="flex items-center gap-1 rounded bg-purple-100 text-purple-700 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.02em]">
