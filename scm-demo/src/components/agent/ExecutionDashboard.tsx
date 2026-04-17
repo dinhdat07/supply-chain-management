@@ -45,10 +45,13 @@ interface ExecutionDashboardProps {
 
 function statusTone(status: string): string {
   const normalized = status.toLowerCase();
-  if (normalized === "completed" || normalized === "applied") {
-    return "bg-green-50 border-green-200 text-green-700";
+  if (normalized === "completed") {
+    return "bg-green-100 border-green-300 text-green-800";
   }
-  if (normalized === "failed") {
+  if (normalized === "applied") {
+    return "bg-blue-50 border-blue-200 text-blue-700";
+  }
+  if (normalized === "failed" || normalized === "rolled_back") {
     return "bg-errorRed/10 border-errorRed/20 text-errorRed";
   }
   if (normalized === "in_progress" || normalized === "partially_applied") {
@@ -103,8 +106,12 @@ function executionSubtitle(record: ActionExecutionRecordView): string {
   return describeActionTarget(record.action_type, resolveExecutionTarget(record));
 }
 
+function isArchivedRecord(record: ActionExecutionRecordView): boolean {
+  return record.status === "applied";
+}
+
 function isCompletedRecord(record: ActionExecutionRecordView): boolean {
-  return record.status === "completed" || record.status === "applied";
+  return record.status === "completed";
 }
 
 function sortRecords(records: ActionExecutionRecordView[]): ActionExecutionRecordView[] {
@@ -147,30 +154,34 @@ function ExecutionHistoryCard({
     onProgress &&
       onComplete &&
       isCommitRecord &&
-      record.status !== "completed" &&
-      record.status !== "failed",
+      !isDone &&
+      record.status !== "rolled_back",
   );
 
   return (
     <div
       className={`rounded-[16px] border bg-pureWhite shadow-sm transition-all ${
-        isDone
-          ? "border-green-200"
-          : isFailed
-            ? "border-errorRed/30"
-            : record.status === "in_progress"
-              ? "border-amber-200"
-              : "border-borderGray"
+        record.status === "applied"
+          ? "border-blue-200"
+          : record.status === "completed"
+            ? "border-green-200"
+            : isFailed
+              ? "border-errorRed/30"
+              : record.status === "in_progress"
+                ? "border-amber-200"
+                : "border-borderGray"
       }`}
     >
       <div className="flex items-start gap-3 px-4 py-3">
         <div
           className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${
             isDone
-              ? "bg-green-500"
+                ? "bg-green-600 shadow-[0_0_4px_rgba(22,163,74,0.4)]" 
               : isFailed
                 ? "bg-errorRed"
-                : "animate-pulse bg-amber-400"
+                : record.status === "applied"
+                  ? "bg-blue-500 shadow-[0_0_4px_rgba(59,130,246,0.4)]"
+                  : "animate-pulse bg-amber-400"
           }`}
         />
 
@@ -335,8 +346,8 @@ export function ExecutionDashboard({
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
 
-  const [dispatchMode, setDispatchMode] = useState<"commit" | "dry_run">(
-    "dry_run",
+  const [dispatchMode] = useState<"commit" | "dry_run">(
+    "commit",
   );
   const [dispatchResult, setDispatchResult] =
     useState<PlanDispatchResponse | null>(null);
@@ -345,7 +356,7 @@ export function ExecutionDashboard({
 
   const [actionBusyId, setActionBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [showCompleted, setShowCompleted] = useState(false);
+  const [showAppliedHistory, setShowAppliedHistory] = useState(false);
   const [showAllPackageActions, setShowAllPackageActions] = useState(false);
 
   const needsApproval = Boolean(
@@ -376,21 +387,62 @@ export function ExecutionDashboard({
     return sortRecords(executions.filter((item) => item.plan_id === plan.plan_id));
   }, [dispatchResult?.records, executions, plan]);
 
-  const activeExecutions = useMemo(
-    () => executions.filter((record) => !isCompletedRecord(record)),
-    [executions],
+  const currentExecutionIds = useMemo(() => {
+    const latest = dispatchResult?.records ?? [];
+    return new Set(latest.map((r) => r.execution_id));
+  }, [dispatchResult]);
+
+  const rolledBackExecutions = useMemo(
+    () =>
+      executions.filter((record) => {
+        const isCurrentBatch = currentExecutionIds.size === 0 || currentExecutionIds.has(record.execution_id);
+        return record.status === "rolled_back" && isCurrentBatch;
+      }),
+    [executions, currentExecutionIds],
   );
+
+  const queuedExecutions = useMemo(
+    () =>
+      executions.filter((record) => {
+        const isCurrentBatch = currentExecutionIds.size === 0 || currentExecutionIds.has(record.execution_id);
+        return !isCompletedRecord(record) && record.status !== "rolled_back" && isCurrentBatch;
+      }),
+    [executions, currentExecutionIds],
+  );
+
   const completedExecutions = useMemo(
-    () => executions.filter((record) => isCompletedRecord(record)),
-    [executions],
+    () =>
+      executions.filter((record) => {
+        const isCurrentBatch = currentExecutionIds.size === 0 || currentExecutionIds.has(record.execution_id);
+        return isCompletedRecord(record) && isCurrentBatch;
+      }),
+    [executions, currentExecutionIds],
   );
-  const relevantActiveExecutions = useMemo(
-    () => relevantExecutions.filter((record) => !isCompletedRecord(record)),
-    [relevantExecutions],
+
+  const relevantQueuedExecutions = useMemo(
+    () =>
+      relevantExecutions.filter((record) => {
+        const isCurrentBatch = currentExecutionIds.size === 0 || currentExecutionIds.has(record.execution_id);
+        return !isCompletedRecord(record) && isCurrentBatch;
+      }),
+    [relevantExecutions, currentExecutionIds],
   );
+
   const relevantCompletedExecutions = useMemo(
-    () => relevantExecutions.filter((record) => isCompletedRecord(record)),
-    [relevantExecutions],
+    () =>
+      relevantExecutions.filter((record) => {
+        const isCurrentBatch = currentExecutionIds.size === 0 || currentExecutionIds.has(record.execution_id);
+        return isCompletedRecord(record) && isCurrentBatch;
+      }),
+    [relevantExecutions, currentExecutionIds],
+  );
+
+  const relevantAppliedExecutions = useMemo(
+    () => relevantExecutions.filter((record) => {
+      const isOldBatch = currentExecutionIds.size > 0 && !currentExecutionIds.has(record.execution_id);
+      return isOldBatch;
+    }),
+    [relevantExecutions, currentExecutionIds],
   );
 
   const handleDispatch = async () => {
@@ -528,7 +580,7 @@ export function ExecutionDashboard({
                   : `${executions.length} execution record${executions.length !== 1 ? "s" : ""}`}
               </span>
               <span className="rounded-full bg-lightSurface px-2.5 py-1 text-[11px] font-semibold text-nearBlack">
-                {activeExecutions.length} active
+                {queuedExecutions.length} active
               </span>
               <span className="rounded-full bg-lightSurface px-2.5 py-1 text-[11px] font-semibold text-nearBlack">
                 {completedExecutions.length} completed
@@ -571,12 +623,31 @@ export function ExecutionDashboard({
             </div>
           ) : (
             <div className="space-y-4">
+              {rolledBackExecutions.length ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-[12px] font-black uppercase tracking-widest text-errorRed">
+                    <AlertCircle size={14} />
+                    Critical: Rolled Back
+                  </div>
+                  {rolledBackExecutions.map((record) => (
+                    <div key={record.execution_id}>
+                      <ExecutionHistoryCard
+                        record={record}
+                        onRefresh={loadHistory}
+                        onProgress={handleProgress}
+                        onComplete={handleComplete}
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
               <div className="space-y-3">
                 <div className="text-[12px] font-black uppercase tracking-widest text-secondaryGray">
                   Pending and in progress
                 </div>
-                {activeExecutions.length ? (
-                  activeExecutions.map((record) => (
+                {queuedExecutions.length ? (
+                  queuedExecutions.map((record) => (
                     <div
                       key={record.execution_id}
                       className={actionBusyId === record.execution_id ? "opacity-70" : ""}
@@ -591,45 +662,31 @@ export function ExecutionDashboard({
                   ))
                 ) : (
                   <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-4 text-[13px] text-green-700">
-                    No active executions. Current records are completed or awaiting the next dispatch.
+                    No active executions. Current records are completed, applied, or awaiting the next dispatch.
                   </div>
                 )}
               </div>
 
               {completedExecutions.length ? (
                 <div className="space-y-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowCompleted((current) => !current)}
-                    className="flex w-full items-center justify-between rounded-xl border border-borderGray bg-pureWhite px-4 py-3 text-left"
-                  >
-                    <div>
-                      <div className="text-[12px] font-black uppercase tracking-widest text-secondaryGray">
-                        Completed actions
-                      </div>
-                      <div className="mt-1 text-[13px] text-secondaryGray">
-                        Archived separately so the active queue stays focused.
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 text-[11px] font-bold text-secondaryGray">
-                      <span>{completedExecutions.length} records</span>
-                      {showCompleted ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                    </div>
-                  </button>
-
-                  {showCompleted ? (
-                    <div className="max-h-[380px] space-y-3 overflow-y-auto pr-1 custom-scrollbar">
-                      {completedExecutions.map((record) => (
+                  <div className="text-[12px] font-black uppercase tracking-widest text-secondaryGray">
+                    Completed actions
+                  </div>
+                  <div className="space-y-3">
+                    {completedExecutions.map((record) => (
+                      <div
+                        key={record.execution_id}
+                        className={actionBusyId === record.execution_id ? "opacity-70" : ""}
+                      >
                         <ExecutionHistoryCard
-                          key={record.execution_id}
                           record={record}
                           onRefresh={loadHistory}
                           onProgress={handleProgress}
                           onComplete={handleComplete}
                         />
-                      ))}
-                    </div>
-                  ) : null}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ) : null}
             </div>
@@ -760,39 +817,11 @@ export function ExecutionDashboard({
                   </div>
 
                   <div className="space-y-3">
-                    <div className="flex gap-2">
-                      {(["dry_run", "commit"] as const).map((mode) => (
-                        <button
-                          key={mode}
-                          type="button"
-                          onClick={() => setDispatchMode(mode)}
-                          className={`flex flex-1 items-center justify-center gap-2 rounded-xl border py-2.5 text-[12px] font-bold transition-all ${
-                            dispatchMode === mode
-                              ? mode === "commit"
-                                ? "border-rausch bg-rausch/10 text-rausch"
-                                : "border-nearBlack bg-nearBlack text-pureWhite"
-                              : "border-borderGray text-secondaryGray hover:bg-lightSurface"
-                          }`}
-                        >
-                          {mode === "dry_run" ? (
-                            <FlaskConical size={14} />
-                          ) : (
-                            <Play size={14} />
-                          )}
-                          {mode === "dry_run" ? "Dry run" : "Commit"}
-                        </button>
-                      ))}
-                    </div>
-
                     <button
                       type="button"
                       onClick={() => void handleDispatch()}
                       disabled={dispatching || needsApproval}
-                      className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 text-[13px] font-black text-pureWhite transition-all disabled:cursor-not-allowed disabled:opacity-40 ${
-                        dispatchMode === "commit"
-                          ? "bg-rausch hover:bg-rausch/90"
-                          : "bg-nearBlack hover:bg-nearBlack/90"
-                      }`}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-rausch py-3 text-[13px] font-black text-pureWhite transition-all hover:bg-rausch/90 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       {dispatching ? (
                         <Loader2 size={15} className="animate-spin" />
@@ -890,12 +919,12 @@ export function ExecutionDashboard({
                     Action execution records
                   </div>
 
-                  {relevantActiveExecutions.length ? (
+                  {relevantQueuedExecutions.length ? (
                     <div className="space-y-3">
                       <div className="text-[11px] font-black uppercase tracking-widest text-secondaryGray">
                         Active actions
                       </div>
-                      {relevantActiveExecutions.map((record) => (
+                      {relevantQueuedExecutions.map((record) => (
                         <div
                           key={record.execution_id}
                           className={actionBusyId === record.execution_id ? "opacity-70" : ""}
@@ -916,8 +945,31 @@ export function ExecutionDashboard({
                       <div className="text-[11px] font-black uppercase tracking-widest text-secondaryGray">
                         Completed actions
                       </div>
-                      <div className="max-h-[320px] space-y-3 overflow-y-auto pr-1 custom-scrollbar">
+                      <div className="space-y-3">
                         {relevantCompletedExecutions.map((record) => (
+                          <div
+                            key={record.execution_id}
+                            className={actionBusyId === record.execution_id ? "opacity-70" : ""}
+                          >
+                            <ExecutionHistoryCard
+                              record={record}
+                              onRefresh={loadHistory}
+                              onProgress={handleProgress}
+                              onComplete={handleComplete}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {relevantAppliedExecutions.length ? (
+                    <div className="space-y-3">
+                      <div className="text-[11px] font-black uppercase tracking-widest text-secondaryGray">
+                        Applied History
+                      </div>
+                      <div className="max-h-[320px] space-y-3 overflow-y-auto pr-1 custom-scrollbar">
+                        {relevantAppliedExecutions.map((record) => (
                           <ExecutionHistoryCard
                             key={record.execution_id}
                             record={record}
