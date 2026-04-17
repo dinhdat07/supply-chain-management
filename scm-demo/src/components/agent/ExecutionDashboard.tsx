@@ -6,10 +6,8 @@ import {
   ChevronUp,
   Clock3,
   FileCheck,
-  FlaskConical,
   List,
   Loader2,
-  Play,
   PlusCircle,
   RefreshCcw,
   Shield,
@@ -105,11 +103,6 @@ function executionTitle(record: ActionExecutionRecordView): string {
 function executionSubtitle(record: ActionExecutionRecordView): string {
   return describeActionTarget(record.action_type, resolveExecutionTarget(record));
 }
-
-function isArchivedRecord(record: ActionExecutionRecordView): boolean {
-  return record.status === "applied";
-}
-
 function isCompletedRecord(record: ActionExecutionRecordView): boolean {
   return record.status === "completed";
 }
@@ -356,7 +349,6 @@ export function ExecutionDashboard({
 
   const [actionBusyId, setActionBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [showAppliedHistory, setShowAppliedHistory] = useState(false);
   const [showAllPackageActions, setShowAllPackageActions] = useState(false);
 
   const needsApproval = Boolean(
