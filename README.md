@@ -2,9 +2,9 @@
 
 # ChainCopilot — Control Tower UI
 
-**A real-time supply chain control tower interface for the ChainCopilot agent backend.**
+**MVP demo frontend for the ChainCopilot multi-agent supply chain backend.**
 
-This dashboard gives supply chain operators a live view into autonomous agent reasoning, disruption response plans, KPI projections, human-in-the-loop approval workflows, and execution tracking — all streamed in real time from the ChainCopilot backend.
+This dashboard lets you interact with the ChainCopilot agent backend in a browser: trigger disruption scenarios, watch AI agents reason in real time over WebSocket, review recommended plans, approve or reject decisions, and inspect the full audit trail of every run.
 
 ---
 
@@ -28,14 +28,16 @@ This dashboard gives supply chain operators a live view into autonomous agent re
 
 ## Overview
 
-The ChainCopilot Control Tower UI is a single-page React application that serves as the operator interface for the ChainCopilot agent backend. It provides:
+> **This is an MVP demo UI.** It is designed to be run locally alongside the ChainCopilot backend. There is no authentication, no real dispatch integration, and data resets when the backend resets. The interface is intended to demonstrate the agent reasoning, explainability, and human-in-the-loop approval flows.
 
-- A **live agent reasoning panel** that streams each agent's thinking as it happens over WebSocket
-- A **decision flow view** that shows why a plan was selected, what alternatives were evaluated, and what the critic said
-- A **human-in-the-loop approval queue** for reviewing, approving, rejecting, or promoting alternative strategies
-- A **run ledger** with full trace, state snapshot, and decision log for every historical run
-- An **execution pipeline** for tracking dispatched actions through to completion
-- A **KPI dashboard** and **inventory / supplier tables** for situational awareness
+The UI is a single-page React application with two main interaction modes:
+
+- **Streaming mode** — after triggering a scenario or daily plan, a WebSocket connection streams each agent's reasoning step by step as the LangGraph graph executes
+- **Review mode** — once a run completes, the interface surfaces the full decision log: winning plan, alternative strategies, critic findings, projected KPI impact over 3 days, and the learning loop output
+
+## Related
+
+- **Backend (Agent Engine):** [github.com/dinhdat07/chain-copilot](https://github.com/dinhdat07/chain-copilot) — Python / FastAPI / LangGraph backend that powers this UI.
 
 ---
 
