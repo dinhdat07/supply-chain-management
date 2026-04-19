@@ -12,7 +12,7 @@ import { useThinkingStream } from "./hooks/useThinkingStream";
 import type { ScenarioName } from "./lib/types";
 
 function App() {
-  const [currentTab, setCurrentTab] = useState("plan-generation");
+  const [currentTab, setCurrentTab] = useState("dashboard");
   const [scenario, setScenario] = useState<ScenarioName>("supplier_delay");
   const {
     summary,
