@@ -263,8 +263,10 @@ export function useControlTower() {
   async function handleRunScenario(scenario: ScenarioName) {
     setActionLoading(`scenario:${scenario}`);
     try {
-      await runScenario(scenario);
-      await refresh();
+      const response = await runScenario(scenario);
+      const preferredRunId = response.run_id ?? null;
+      selectedRunIdRef.current = preferredRunId;
+      await loadAll(preferredRunId);
     } catch (caught) {
       setError(
         caught instanceof Error ? caught.message : "Failed to run scenario.",

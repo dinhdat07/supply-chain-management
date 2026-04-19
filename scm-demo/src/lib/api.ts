@@ -14,6 +14,7 @@ import type {
   ReflectionListResponse,
   RunDetailResponse,
   RunListResponse,
+  ScenarioRunResponse,
   RunStateResponse,
   ScenarioName,
   ServiceRuntimeResponse,
@@ -49,6 +50,31 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   return response.json() as Promise<T>;
+}
+
+async function requestText(path: string, init?: RequestInit): Promise<string> {
+  const response = await fetch(`${API_BASE}${path}`, {
+    headers: {
+      ...(init?.headers ?? {}),
+    },
+    ...init,
+  });
+
+  if (!response.ok) {
+    let message = `Request failed with status ${response.status}`;
+    try {
+      const payload = await response.json();
+      message =
+        typeof payload.detail === "string"
+          ? payload.detail
+          : (payload.detail?.message ?? payload.message ?? message);
+    } catch {
+      message = response.statusText || message;
+    }
+    throw new Error(message);
+  }
+
+  return response.text();
 }
 
 function toWebSocketOrigin(origin: string): string {
@@ -146,10 +172,14 @@ export function runDailyPlan() {
 }
 
 export function runScenario(scenarioName: ScenarioName) {
-  return requestJson("/scenarios/run", {
+  return requestJson<ScenarioRunResponse>("/scenarios/run", {
     method: "POST",
     body: JSON.stringify({ scenario_name: scenarioName }),
   });
+}
+
+export function fetchRunTraceExport(runId: string, format: "markdown" | "json" = "markdown") {
+  return requestText(`/runs/${runId}/trace/export?format=${format}`);
 }
 
 export function previewScenario(scenarioName: ScenarioName) {

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { CheckCircle2, Circle, LoaderCircle } from "lucide-react";
+import { fetchRunTraceExport } from "../../lib/api";
 import type {
   ControlTowerStateView,
   DecisionLogDetailView,
@@ -198,6 +199,7 @@ export function RunLedger({
     selectedRunState?.reflections.filter((item) => item.run_id === selectedRun?.run_id) ?? [];
   const [activeStoryStep, setActiveStoryStep] = useState<StoryStepKey>("signal");
   const [expandedTimelineItems, setExpandedTimelineItems] = useState<Record<string, boolean>>({});
+  const [exportLoading, setExportLoading] = useState<"markdown" | "json" | null>(null);
 
   const lifecycleSteps: StoryStepKey[] = [
     "signal",
@@ -214,6 +216,38 @@ export function RunLedger({
         : [],
     [selectedRun, selectedRunExecution, selectedRunTrace],
   );
+
+  async function copyTraceMarkdown() {
+    if (!selectedRun) return;
+    setExportLoading("markdown");
+    try {
+      const markdown = await fetchRunTraceExport(selectedRun.run_id, "markdown");
+      await navigator.clipboard.writeText(markdown);
+    } finally {
+      setExportLoading(null);
+    }
+  }
+
+  async function downloadTrace(format: "markdown" | "json") {
+    if (!selectedRun) return;
+    setExportLoading(format);
+    try {
+      const content = await fetchRunTraceExport(selectedRun.run_id, format);
+      const blob = new Blob([content], {
+        type: format === "json" ? "application/json" : "text/markdown;charset=utf-8",
+      });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `${selectedRun.run_id}-trace.${format === "json" ? "json" : "md"}`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExportLoading(null);
+    }
+  }
 
   return (
     <section className="space-y-5">
@@ -320,8 +354,35 @@ export function RunLedger({
                   <p className="mt-2 text-[14px] text-secondaryGray">
                     Run {selectedRun.run_id} started {formatDateTime(selectedRun.started_at)} and completed in {formatDurationMs(selectedRun.duration_ms)}.
                   </p>
+                  <p className="mt-2 text-[12px] text-secondaryGray">
+                    This run's agent trace is persisted and can be exported for documentation.
+                  </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void copyTraceMarkdown()}
+                    className="rounded-full border border-borderGray bg-pureWhite px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-nearBlack hover:bg-lightSurface"
+                    disabled={exportLoading !== null}
+                  >
+                    {exportLoading === "markdown" ? "Copying..." : "Copy markdown"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void downloadTrace("markdown")}
+                    className="rounded-full border border-borderGray bg-pureWhite px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-nearBlack hover:bg-lightSurface"
+                    disabled={exportLoading !== null}
+                  >
+                    {exportLoading === "markdown" ? "Preparing..." : "Download .md"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void downloadTrace("json")}
+                    className="rounded-full border border-borderGray bg-pureWhite px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-nearBlack hover:bg-lightSurface"
+                    disabled={exportLoading !== null}
+                  >
+                    {exportLoading === "json" ? "Preparing..." : "Download .json"}
+                  </button>
                   <span className="rounded-full border border-borderGray bg-lightSurface px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-secondaryGray">
                     {humanizeLabel(selectedRun.run_type)}
                   </span>

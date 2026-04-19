@@ -302,6 +302,15 @@ export interface TraceResponse {
   item: TraceView;
 }
 
+export interface ScenarioRunResponse {
+  summary?: string;
+  latest_plan?: PlanView | null;
+  pending_plan?: PlanView | null;
+  decision_id?: string | null;
+  run_id?: string | null;
+  scenario_history_count?: number;
+}
+
 export interface PendingApprovalResponse {
   item?: PendingApprovalView | null;
 }
